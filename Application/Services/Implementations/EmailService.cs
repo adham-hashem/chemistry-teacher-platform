@@ -46,6 +46,7 @@ namespace Application.Services.Implementations
             mailMessage.To.Add(toEmail);
 
             await smtpClient.SendMailAsync(mailMessage);
+
         }
     }
 }
