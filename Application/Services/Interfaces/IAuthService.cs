@@ -13,5 +13,7 @@ namespace Application.Services.Interfaces
         Task<TokenResponseDto> LoginAsync(LoginDto loginDto);
         Task<TokenResponseDto> RefreshTokenAsync(string refreshToken);
         Task RevokeRefreshTokenAsync(string refreshToken);
+        Task ForgotPasswordAsync(string email);
+        Task ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
     }
 }
