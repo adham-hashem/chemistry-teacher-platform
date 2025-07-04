@@ -1,0 +1,34 @@
+# Build results
+bin/
+obj/
+
+# Logs
+*.log
+Web/Logs/*.txt
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VSCode / Rider / IDE settings
+.vs/
+.idea/
+
+# app settings
+Web/appsettings.Development.json
+appsettings.json
+.env
+
+# Others
+Web/Web.csproj.user
+
+f.py
+f.bat
+f.txt
+
+gcof.py
+gcof.bat
+gcof.txt
+
