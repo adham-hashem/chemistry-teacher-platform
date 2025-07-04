@@ -151,6 +151,7 @@ builder.Services.AddScoped<ILessonAccessCodeService, LessonAccessCodeService>();
 builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddHttpClient<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
