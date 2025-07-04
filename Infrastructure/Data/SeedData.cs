@@ -14,7 +14,7 @@ namespace Infrastructure.Data
 {
     public static class SeedData
     {
-        public static async Task InitializeAsync(IServiceProvider serviceProvider)
+        public static async Task InitializeAsync(IServiceProvider serviceProvider, IConfiguration configuration)
         {
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -29,10 +29,17 @@ namespace Infrastructure.Data
             if (!await roleManager.RoleExistsAsync("Student"))
                 await roleManager.CreateAsync(new IdentityRole("Student"));
 
+            var teacherUsername = configuration["TEACHER_USERNAME"];
+            var teacherPassword = configuration["TEACHER_PASSWORD"];
+            var teacherEmail = configuration["TEACHER_EMAIL"];
+            var studentUsername = configuration["STUDENT_USERNAME"];
+            var studentPassword = configuration["STUDENT_PASSWORD"];
+            var studentEmail = configuration["STUDENT_EMAIL"];
+
             var teacher = new ApplicationUser
             {
-                UserName = "teacher@platform.com",
-                Email = "teacher@platform.com",
+                UserName = teacherUsername,
+                Email = teacherEmail,
                 FirstName = "Teacher",
                 LastName = "One",
                 Grade = EducationalLevel.FirstYear,
@@ -41,8 +48,8 @@ namespace Infrastructure.Data
 
             var student = new ApplicationUser
             {
-                UserName = "student@platform.com",
-                Email = "student@platform.com",
+                UserName = studentUsername,
+                Email = studentEmail,
                 FirstName = "Student",
                 LastName = "One",
                 Grade = EducationalLevel.FirstYear,
@@ -51,14 +58,14 @@ namespace Infrastructure.Data
 
             if (await userManager.FindByEmailAsync(teacher.Email) == null)
             {
-                var result = await userManager.CreateAsync(teacher, "@TeacherA123456");
+                var result = await userManager.CreateAsync(teacher, teacherPassword);
                 if (result.Succeeded)
                     await userManager.AddToRoleAsync(teacher, "Teacher");
             }
 
             if (await userManager.FindByEmailAsync(student.Email) == null)
             {
-                var result = await userManager.CreateAsync(student, "Student123!");
+                var result = await userManager.CreateAsync(student, studentPassword);
                 if (result.Succeeded)
                     await userManager.AddToRoleAsync(student, "Student");
             }
