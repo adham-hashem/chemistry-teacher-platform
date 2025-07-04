@@ -25,6 +25,8 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddEnvironmentVariables();
+
 // Use Serilog as the logging provider
 builder.Host.UseSerilog();
 
@@ -181,7 +183,7 @@ using (var scope = app.Services.CreateScope())
     }
 
     // Seed initial data (assuming SeedData is defined elsewhere)
-    await SeedData.InitializeAsync(scope.ServiceProvider);
+    await SeedData.InitializeAsync(scope.ServiceProvider, app.Configuration);
 }
 
 app.Run();
