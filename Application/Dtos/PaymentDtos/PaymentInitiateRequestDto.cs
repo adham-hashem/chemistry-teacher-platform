@@ -10,6 +10,7 @@ namespace Application.Dtos.PaymentDtos
     {
         public Guid SubscriptionId { get; set; }
         public decimal Amount { get; set; }
+        public string DiscountCode { get; set; }
         public string PaymentMethod { get; set; }
     }
 }

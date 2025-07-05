@@ -21,5 +21,7 @@ namespace Domain.Entities
         public string TransactionId { get; set; }
         public string Status { get; set; } // e.g., "Pending", "Completed", "Failed"
         public DateTime CreatedAt { get; set; }
+        public string? DiscountCode { get; set; }
+        public decimal? OriginalAmount { get; set; }
     }
 }

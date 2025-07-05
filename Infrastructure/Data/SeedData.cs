@@ -78,6 +78,7 @@ namespace Infrastructure.Data
                     Name = "Sample Course",
                     Category = "Organic chemistry",
                     EducationalLevel = EducationalLevel.FirstYear,
+                    ImageUrl = "/Uploads/Courses/sample-course.jpg",
                     ShortDescription = "A sample course for testing",
                     DetailedDescription = "This is a detailed description of the sample course.",
                     Requirements = "None",

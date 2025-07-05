@@ -35,6 +35,11 @@ builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
         options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
 
+//builder.Services.AddSpaStaticFiles(configuration =>
+//{
+//    configuration.RootPath = "wwwroot";
+//});
+
 // Add Swagger for API documentation
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -101,11 +106,11 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Student", policy =>
-        policy.RequireRole("Student")); // Student role
+        policy.RequireRole("Student"));
     options.AddPolicy("Teacher", policy =>
-        policy.RequireRole("Teacher")); // Teacher role
+        policy.RequireRole("Teacher"));
     options.AddPolicy("StudentOrTeacher", policy =>
-        policy.RequireRole("Student", "Teacher")); // Allow both roles
+        policy.RequireRole("Student", "Teacher"));
 });
 
 // Configure Rate Limiting

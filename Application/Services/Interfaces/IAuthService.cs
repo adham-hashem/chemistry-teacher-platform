@@ -15,5 +15,7 @@ namespace Application.Services.Interfaces
         Task RevokeRefreshTokenAsync(string refreshToken);
         Task ForgotPasswordAsync(string email);
         Task ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
+        Task SendEmailVerificationAsync(string email);
+        Task VerifyEmailAsync(VerifyEmailDto verifyEmailDto);
     }
 }

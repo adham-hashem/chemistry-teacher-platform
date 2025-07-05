@@ -16,6 +16,7 @@ namespace Web.Controllers
             _examService = examService;
         }
 
+        [Authorize(Policy = "Teacher")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -30,12 +31,14 @@ namespace Web.Controllers
             }
         }
 
+        [Authorize(Policy = "StudentOrTeacher")]
         [HttpGet("lesson/{lessonId}")]
         public async Task<IActionResult> GetByLessonId(Guid lessonId)
         {
             try
             {
-                var exams = await _examService.GetByLessonIdAsync(lessonId);
+                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var exams = await _examService.GetByLessonIdAsync(lessonId, userId);
                 return Ok(exams);
             }
             catch (Exception ex)
@@ -44,6 +47,7 @@ namespace Web.Controllers
             }
         }
 
+        [Authorize(Policy = "Teacher")]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {

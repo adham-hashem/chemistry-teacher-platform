@@ -2,7 +2,9 @@
 using Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -48,11 +50,15 @@ namespace Web.Controllers
 
         [Authorize(Roles = "Teacher")]
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CourseDto courseDto)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Create([FromForm] CourseDto courseDto)
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                    return Unauthorized(new { message = "User not authenticated." });
+
                 var createdCourse = await _courseService.CreateAsync(courseDto, userId);
                 return CreatedAtAction(nameof(GetById), new { id = createdCourse.Id }, createdCourse);
             }
@@ -64,11 +70,15 @@ namespace Web.Controllers
 
         [Authorize(Roles = "Teacher")]
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] CourseDto courseDto)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Update([FromForm] CourseDto courseDto)
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                    return Unauthorized(new { message = "User not authenticated." });
+
                 await _courseService.UpdateAsync(courseDto, userId);
                 return NoContent();
             }
@@ -84,7 +94,10 @@ namespace Web.Controllers
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                    return Unauthorized(new { message = "User not authenticated." });
+
                 await _courseService.DeleteAsync(id, userId);
                 return NoContent();
             }

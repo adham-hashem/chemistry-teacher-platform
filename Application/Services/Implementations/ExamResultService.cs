@@ -16,6 +16,8 @@ namespace Application.Services.Implementations
         private readonly IExamRepository _examRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly ILessonAccessCodeRepository _lessonAccessCodeRepository;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ILessonRepository _lessonRepository;
         private readonly UserManager<ApplicationUser> _userManager;
 
         public ExamResultService(
@@ -23,20 +25,35 @@ namespace Application.Services.Implementations
             IExamRepository examRepository,
             ISubscriptionRepository subscriptionRepository,
             ILessonAccessCodeRepository lessonAccessCodeRepository,
+            ISubscriptionService subscriptionService,
+            ILessonRepository lessonRepository,
             UserManager<ApplicationUser> userManager)
         {
             _examResultRepository = examResultRepository;
             _examRepository = examRepository;
             _subscriptionRepository = subscriptionRepository;
             _lessonAccessCodeRepository = lessonAccessCodeRepository;
+            _subscriptionService = subscriptionService;
+            _lessonRepository = lessonRepository;
             _userManager = userManager;
         }
 
-        public async Task<ExamResultDto> GetByIdAsync(Guid id)
+        public async Task<ExamResultDto> GetByIdAsync(Guid id, string userId)
         {
+            if (string.IsNullOrEmpty(userId))
+                throw new UnauthorizedAccessException("User ID is required.");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new UnauthorizedAccessException("User not found.");
+
             var examResult = await _examResultRepository.GetByIdAsync(id);
             if (examResult == null)
-                throw new Exception("Exam result not found.");
+                throw new KeyNotFoundException("Exam result not found.");
+
+            bool isTeacher = await _userManager.IsInRoleAsync(user, "Teacher");
+            if (!isTeacher && examResult.UserId != userId)
+                throw new UnauthorizedAccessException("Students can only view their own exam results.");
 
             return new ExamResultDto
             {
@@ -49,9 +66,19 @@ namespace Application.Services.Implementations
             };
         }
 
-        public async Task<List<ExamResultDto>> GetByExamIdAsync(Guid examId)
+        public async Task<List<ExamResultDto>> GetByExamIdAsync(Guid examId, string userId)
         {
+            if (string.IsNullOrEmpty(userId))
+                throw new UnauthorizedAccessException("User ID is required.");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null || !await _userManager.IsInRoleAsync(user, "Teacher"))
+                throw new UnauthorizedAccessException("Only teachers can view all exam results.");
+
             var examResults = await _examResultRepository.GetByExamIdAsync(examId);
+            if (!examResults.Any())
+                throw new KeyNotFoundException("No results found for the specified exam.");
+
             return examResults.Select(er => new ExamResultDto
             {
                 Id = er.Id,
@@ -65,9 +92,12 @@ namespace Application.Services.Implementations
 
         public async Task<List<ExamResultDto>> GetByUserIdAsync(string userId)
         {
+            if (string.IsNullOrEmpty(userId))
+                throw new ArgumentException("User ID is required.");
+
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null || !await _userManager.IsInRoleAsync(user, "Student"))
-                throw new Exception("Only students can view their exam results.");
+                throw new UnauthorizedAccessException("Only students can view their own exam results.");
 
             var examResults = await _examResultRepository.GetByUserIdAsync(userId);
             return examResults.Select(er => new ExamResultDto
@@ -81,28 +111,44 @@ namespace Application.Services.Implementations
             }).ToList();
         }
 
-        public async Task<ExamResultDto> SubmitAsync(ExamResultDto examResultDto, string userId)
+        public async Task<ExamResultDto> SubmitAsync(SubmitExamDto submitExamDto, string userId)
         {
+            if (string.IsNullOrEmpty(userId))
+                throw new ArgumentException("User ID is required.");
+
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null || !await _userManager.IsInRoleAsync(user, "Student"))
-                throw new Exception("Only students can submit exam results.");
+                throw new UnauthorizedAccessException("Only students can submit exam results.");
 
-            var exam = await _examRepository.GetByIdAsync(examResultDto.ExamId);
+            var exam = await _examRepository.GetByIdAsync(submitExamDto.ExamId);
             if (exam == null)
-                throw new Exception("Exam not found.");
+                throw new KeyNotFoundException("Exam not found.");
 
-            var hasAccess = await HasLessonAccessAsync(userId, exam.LessonId);
+            var lesson = await _lessonRepository.GetByIdAsync(exam.LessonId);
+            if (lesson == null)
+                throw new KeyNotFoundException("Lesson not found.");
+
+            // Check if the student has already submitted this exam
+            var existingResult = await _examResultRepository.GetByExamIdAndUserIdAsync(submitExamDto.ExamId, userId);
+            if (existingResult != null)
+                throw new InvalidOperationException("Exam already submitted by this user.");
+
+            // Allow access if the lesson is free or the student has a subscription/access code
+            bool hasAccess = lesson.IsFree || await _subscriptionService.CanAccessLessonAsync(userId, exam.LessonId);
             if (!hasAccess)
-                throw new Exception("User does not have access to the lesson associated with this exam.");
+                throw new UnauthorizedAccessException("User does not have access to the lesson associated with this exam.");
+
+            if (submitExamDto.Answers == null || !submitExamDto.Answers.Any())
+                throw new ArgumentException("At least one answer must be provided.");
 
             var examResult = new ExamResult
             {
                 Id = Guid.NewGuid(),
-                ExamId = examResultDto.ExamId,
+                ExamId = submitExamDto.ExamId,
                 UserId = userId,
-                Answers = examResultDto.Answers,
+                Answers = submitExamDto.Answers,
                 SubmittedAt = DateTime.UtcNow,
-                Score = CalculateScore(exam.Questions, examResultDto.Answers)
+                Score = CalculateScore(exam.Questions, submitExamDto.Answers)
             };
 
             await _examResultRepository.AddAsync(examResult);
@@ -120,32 +166,25 @@ namespace Application.Services.Implementations
 
         public async Task DeleteAsync(Guid id, string userId)
         {
+            if (string.IsNullOrEmpty(userId))
+                throw new UnauthorizedAccessException("User ID is required.");
+
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null || !await _userManager.IsInRoleAsync(user, "Teacher"))
-                throw new Exception("Only teachers can delete exam results.");
+                throw new UnauthorizedAccessException("Only teachers can delete exam results.");
 
             var examResult = await _examResultRepository.GetByIdAsync(id);
             if (examResult == null)
-                throw new Exception("Exam result not found.");
+                throw new KeyNotFoundException("Exam result not found.");
 
             await _examResultRepository.DeleteAsync(id);
         }
 
-        public async Task<bool> HasLessonAccessAsync(string userId, Guid lessonId)
-        {
-            var subscriptions = await _subscriptionRepository.GetByUserIdAsync(userId);
-            foreach (var subscription in subscriptions)
-            {
-                if (subscription.IsActive && subscription.AccessedLessons.Contains(lessonId))
-                    return true;
-            }
-
-            var accessCodes = await _lessonAccessCodeRepository.GetByUserIdAsync(userId);
-            return accessCodes.Any(ac => ac.LessonId == lessonId);
-        }
-
         private int CalculateScore(List<McqQuestion> questions, List<int> answers)
         {
+            if (questions == null || !questions.Any())
+                return 0;
+
             int score = 0;
             for (int i = 0; i < Math.Min(questions.Count, answers.Count); i++)
             {

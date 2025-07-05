@@ -29,6 +29,7 @@ namespace Infrastructure.Data
         public DbSet<Exam> Exams { get; set; }
         public DbSet<ExamResult> ExamResults { get; set; }
         public DbSet<McqQuestion> McqQuestions { get; set; }
+        public DbSet<DiscountCode> DiscountCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -246,6 +247,15 @@ namespace Infrastructure.Data
                 .IsRequired();
 
             builder.Entity<Payment>()
+                .Property(p => p.DiscountCode)
+                .IsRequired(false);
+
+            builder.Entity<Payment>()
+                .Property(p => p.OriginalAmount)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired(false);
+
+            builder.Entity<Payment>()
                 .HasIndex(p => p.TransactionId)
                 .IsUnique();
 
@@ -370,6 +380,42 @@ namespace Infrastructure.Data
                 .WithMany(e => e.Questions)
                 .HasForeignKey(q => q.ExamId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // DiscountCode configuration
+            builder.Entity<DiscountCode>()
+                .HasKey(dc => dc.Id);
+
+            builder.Entity<DiscountCode>()
+                .Property(dc => dc.Code)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            builder.Entity<DiscountCode>()
+                .Property(dc => dc.DiscountPercentage)
+                .IsRequired()
+                .HasColumnType("decimal(5,2)");
+
+            builder.Entity<DiscountCode>()
+                .Property(dc => dc.ValidFrom)
+                .IsRequired();
+
+            builder.Entity<DiscountCode>()
+                .Property(dc => dc.ValidUntil)
+                .IsRequired();
+
+            builder.Entity<DiscountCode>()
+                .Property(dc => dc.MaxUses)
+                .IsRequired(false);
+
+            builder.Entity<DiscountCode>()
+                .HasOne(dc => dc.Teacher)
+                .WithMany()
+                .HasForeignKey(dc => dc.TeacherId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<DiscountCode>()
+                .HasIndex(dc => dc.Code)
+                .IsUnique();
         }
     }
 }

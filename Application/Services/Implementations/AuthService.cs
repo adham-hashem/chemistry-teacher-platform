@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using Application.Dtos.AuthDtos;
 using Application.Repositories.Interfaces;
 using Application.Services.Interfaces;
@@ -201,6 +202,39 @@ namespace Application.Services.Implementations
             var result = await _userManager.ResetPasswordAsync(user, resetPasswordDto.Token, resetPasswordDto.NewPassword);
             if (!result.Succeeded)
                 throw new Exception(string.Join("; ", result.Errors.Select(e => e.Description)));
+        }
+
+        public async Task SendEmailVerificationAsync(string email)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            user.EmailVerificationToken = token;
+            await _userManager.UpdateAsync(user);
+
+            var encodedToken = HttpUtility.UrlEncode(token);
+            var verificationLink = $"https://yourapp.com/verify-email?email={HttpUtility.UrlEncode(email)}&token={encodedToken}";
+            var emailBody = $"<p>Please verify your email by clicking <a href='{verificationLink}'>here</a>.</p>";
+
+            await _emailService.SendEmailAsync(email, "Verify Your Email", emailBody, isHtml: true);
+        }
+
+        public async Task VerifyEmailAsync(VerifyEmailDto verifyEmailDto)
+        {
+            var user = await _userManager.FindByEmailAsync(verifyEmailDto.Email);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            // Verify the token
+            var result = await _userManager.ConfirmEmailAsync(user, verifyEmailDto.Token);
+            if (!result.Succeeded)
+                throw new Exception("Invalid or expired verification token.");
+
+            user.IsEmailVerified = true;
+            user.EmailVerificationToken = null;
+            await _userManager.UpdateAsync(user);
         }
     }
 }

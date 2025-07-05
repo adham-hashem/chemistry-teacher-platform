@@ -2,6 +2,7 @@
 using Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Web.Controllers
 {
@@ -22,7 +23,11 @@ namespace Web.Controllers
         {
             try
             {
-                var examResult = await _examResultService.GetByIdAsync(id);
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User ID not found in token." });
+
+                var examResult = await _examResultService.GetByIdAsync(id, userId);
                 return Ok(examResult);
             }
             catch (Exception ex)
@@ -31,18 +36,22 @@ namespace Web.Controllers
             }
         }
 
-        [Authorize]
+        [Authorize(Roles = "Teacher")]
         [HttpGet("exam/{examId}")]
         public async Task<IActionResult> GetByExamId(Guid examId)
         {
             try
             {
-                var examResults = await _examResultService.GetByExamIdAsync(examId);
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User ID not found in token." });
+
+                var examResults = await _examResultService.GetByExamIdAsync(examId, userId);
                 return Ok(examResults);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return NotFound(new { message = ex.Message });
             }
         }
 
@@ -52,24 +61,37 @@ namespace Web.Controllers
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User ID not found in token." });
+
                 var examResults = await _examResultService.GetByUserIdAsync(userId);
                 return Ok(examResults);
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException)
             {
-                return BadRequest(new { message = ex.Message });
+                return Forbid();
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "An error occurred while retrieving user exam results." });
             }
         }
 
         [Authorize(Roles = "Student")]
         [HttpPost]
-        public async Task<IActionResult> Submit([FromBody] ExamResultDto examResultDto)
+        public async Task<IActionResult> Submit([FromBody] SubmitExamDto submitExamDto)
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                var createdExamResult = await _examResultService.SubmitAsync(examResultDto, userId);
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User ID not found in token." });
+
+                var createdExamResult = await _examResultService.SubmitAsync(submitExamDto, userId);
                 return CreatedAtAction(nameof(GetById), new { id = createdExamResult.Id }, createdExamResult);
             }
             catch (Exception ex)
@@ -84,7 +106,10 @@ namespace Web.Controllers
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User ID not found in token." });
+
                 await _examResultService.DeleteAsync(id, userId);
                 return NoContent();
             }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Application.Dtos.CourseDtos;
@@ -7,7 +8,10 @@ using Application.Dtos.LessonDtos;
 using Application.Repositories.Interfaces;
 using Application.Services.Interfaces;
 using Domain.Entities;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Hosting;
 
 namespace Application.Services.Implementations
 {
@@ -15,11 +19,14 @@ namespace Application.Services.Implementations
     {
         private readonly ICourseRepository _courseRepository;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly string _uploadPath;
 
-        public CourseService(ICourseRepository courseRepository, UserManager<ApplicationUser> userManager)
+        public CourseService(ICourseRepository courseRepository, UserManager<ApplicationUser> userManager, IWebHostEnvironment environment)
         {
             _courseRepository = courseRepository;
             _userManager = userManager;
+            _uploadPath = Path.Combine(environment.WebRootPath, "uploads", "courses");
+            Directory.CreateDirectory(_uploadPath);
         }
 
         public async Task<CourseDto> GetByIdAsync(Guid id)
@@ -34,6 +41,8 @@ namespace Application.Services.Implementations
                 Name = course.Name,
                 Category = course.Category,
                 EducationalLevel = course.EducationalLevel.ToString(),
+                ImageUrl = course.ImageUrl,
+                IntroductoryVideoUrl = course.IntroductoryVideoUrl,
                 ShortDescription = course.ShortDescription,
                 DetailedDescription = course.DetailedDescription,
                 Requirements = course.Requirements,
@@ -63,6 +72,8 @@ namespace Application.Services.Implementations
                 Name = course.Name,
                 Category = course.Category,
                 EducationalLevel = course.EducationalLevel.ToString(),
+                ImageUrl = course.ImageUrl,
+                IntroductoryVideoUrl = course.IntroductoryVideoUrl,
                 ShortDescription = course.ShortDescription,
                 DetailedDescription = course.DetailedDescription,
                 Requirements = course.Requirements,
@@ -86,6 +97,7 @@ namespace Application.Services.Implementations
                 DetailedDescription = courseDto.DetailedDescription,
                 Requirements = courseDto.Requirements,
                 WhatStudentsWillLearn = courseDto.WhatStudentsWillLearn,
+                IntroductoryVideoUrl = courseDto.IntroductoryVideoUrl,
                 Lessons = courseDto.Lessons?.Select(l => new Lesson
                 {
                     Id = l.Id,
@@ -101,6 +113,9 @@ namespace Application.Services.Implementations
                 }).ToList() ?? new List<Lesson>()
             };
 
+            // Handle image upload
+            course.ImageUrl = await SaveFileAsync(courseDto.ImageFile, course.Id);
+
             await _courseRepository.AddAsync(course);
 
             return new CourseDto
@@ -109,6 +124,8 @@ namespace Application.Services.Implementations
                 Name = course.Name,
                 Category = course.Category,
                 EducationalLevel = course.EducationalLevel.ToString(),
+                ImageUrl = course.ImageUrl,
+                IntroductoryVideoUrl = course.IntroductoryVideoUrl,
                 ShortDescription = course.ShortDescription,
                 DetailedDescription = course.DetailedDescription,
                 Requirements = course.Requirements,
@@ -146,6 +163,7 @@ namespace Application.Services.Implementations
             course.DetailedDescription = courseDto.DetailedDescription;
             course.Requirements = courseDto.Requirements;
             course.WhatStudentsWillLearn = courseDto.WhatStudentsWillLearn;
+            course.IntroductoryVideoUrl = courseDto.IntroductoryVideoUrl;
             course.Lessons = courseDto.Lessons?.Select(l => new Lesson
             {
                 Id = l.Id,
@@ -160,6 +178,15 @@ namespace Application.Services.Implementations
                 CourseId = l.CourseId
             }).ToList() ?? new List<Lesson>();
 
+            // Handle image upload if a new file is provided
+            if (courseDto.ImageFile != null)
+            {
+                // Delete old image if exists
+                DeleteFile(course.ImageUrl);
+                // Save new image
+                course.ImageUrl = await SaveFileAsync(courseDto.ImageFile, course.Id);
+            }
+
             await _courseRepository.UpdateAsync(course);
         }
 
@@ -173,7 +200,48 @@ namespace Application.Services.Implementations
             if (course == null)
                 throw new Exception("Course not found.");
 
+            // Delete image if exists
+            DeleteFile(course.ImageUrl);
+
             await _courseRepository.DeleteAsync(id);
+        }
+
+        private async Task<string?> SaveFileAsync(IFormFile? file, Guid courseId)
+        {
+            if (file == null || file.Length == 0)
+                return null;
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+                throw new Exception("Invalid file type. Only JPG and PNG are allowed.");
+
+            // Validate file size (5MB limit)
+            if (file.Length > 5 * 1024 * 1024)
+                throw new Exception("File size exceeds 5MB.");
+
+            var fileName = $"{courseId}_{Guid.NewGuid()}{fileExtension}";
+            var filePath = Path.Combine(_uploadPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return $"/uploads/courses/{fileName}";
+        }
+
+        private void DeleteFile(string? filePath)
+        {
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                var fullPath = Path.Combine(_uploadPath, filePath.TrimStart('/'));
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                }
+            }
         }
     }
 }

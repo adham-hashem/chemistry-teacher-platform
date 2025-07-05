@@ -10,7 +10,7 @@ namespace Application.Services.Interfaces
     public interface IExamService
     {
         Task<ExamDto> GetByIdAsync(Guid id);
-        Task<List<ExamDto>> GetByLessonIdAsync(Guid lessonId);
+        Task<List<ExamDto>> GetByLessonIdAsync(Guid lessonId, string userId);
         Task<List<ExamDto>> GetAllAsync();
         Task<ExamDto> CreateAsync(ExamDto examDto, string userId);
         Task<ExamDto> UpdateAsync(Guid id, ExamDto examDto, string userId);

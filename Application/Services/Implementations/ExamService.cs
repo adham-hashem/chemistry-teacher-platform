@@ -15,17 +15,20 @@ namespace Application.Services.Implementations
         private readonly IExamRepository _examRepository;
         private readonly ILessonRepository _lessonRepository;
         private readonly IExamResultRepository _examResultRepository;
+        private readonly ISubscriptionService _subscriptionService;
         private readonly UserManager<ApplicationUser> _userManager;
 
         public ExamService(
             IExamRepository examRepository,
             ILessonRepository lessonRepository,
             IExamResultRepository examResultRepository,
+            ISubscriptionService subscriptionService,
             UserManager<ApplicationUser> userManager)
         {
             _examRepository = examRepository;
             _lessonRepository = lessonRepository;
             _examResultRepository = examResultRepository;
+            _subscriptionService = subscriptionService;
             _userManager = userManager;
         }
 
@@ -51,8 +54,24 @@ namespace Application.Services.Implementations
             };
         }
 
-        public async Task<List<ExamDto>> GetByLessonIdAsync(Guid lessonId)
+        public async Task<List<ExamDto>> GetByLessonIdAsync(Guid lessonId, string userId)
         {
+            var lesson = await _lessonRepository.GetByIdAsync(lessonId);
+            if (lesson == null)
+                throw new Exception("Lesson not found.");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            bool isTeacher = user != null && await _userManager.IsInRoleAsync(user, "Teacher");
+
+            if (!isTeacher)
+            {
+                bool canAccess = await _subscriptionService.CanAccessLessonAsync(userId, lessonId);
+                if (!canAccess)
+                {
+                    return new List<ExamDto>();
+                }
+            }
+
             var exams = await _examRepository.GetByLessonIdAsync(lessonId);
             return exams.Select(exam => new ExamDto
             {
@@ -63,7 +82,7 @@ namespace Application.Services.Implementations
                 {
                     QuestionText = q.QuestionText,
                     Options = q.Options,
-                    CorrectOptionIndex = q.CorrectOptionIndex
+                    CorrectOptionIndex = isTeacher ? q.CorrectOptionIndex : -1
                 }).ToList() ?? new List<McqQuestionDto>(),
                 CreatedAt = exam.CreatedAt,
                 UpdatedAt = exam.UpdatedAt

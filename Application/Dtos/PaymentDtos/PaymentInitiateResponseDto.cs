@@ -10,5 +10,6 @@ namespace Application.Dtos.PaymentDtos
     {
         public string PaymentToken { get; set; }
         public string IframeUrl { get; set; }
+        public object IframeAttributes { get; set; } // Contains Kashier iframe script attributes
     }
 }

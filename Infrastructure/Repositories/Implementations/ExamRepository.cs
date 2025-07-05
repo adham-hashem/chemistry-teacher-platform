@@ -24,6 +24,7 @@ namespace Infrastructure.Repositories.Implementations
             return await _context.Exams
                 .Include(e => e.Lesson)
                 .Include(e => e.ExamResults)
+                .Include(e => e.Questions)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
 
@@ -32,6 +33,7 @@ namespace Infrastructure.Repositories.Implementations
             return await _context.Exams
                 .Include(e => e.Lesson)
                 .Include(e => e.ExamResults)
+                .Include(e => e.Questions)
                 .Where(e => e.LessonId == lessonId)
                 .ToListAsync();
         }
@@ -41,6 +43,7 @@ namespace Infrastructure.Repositories.Implementations
             return await _context.Exams
                 .Include(e => e.Lesson)
                 .Include(e => e.ExamResults)
+                .Include(e => e.Questions)
                 .ToListAsync();
         }
 

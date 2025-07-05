@@ -21,6 +21,7 @@ namespace Application.Dtos.UserDtos
         public string LastName { get; set; }
             
         [Required]
+        [Range(1, 3)]
         public string Grade { get; set; }
         public DateTime CreatedAt { get; set; }
     }

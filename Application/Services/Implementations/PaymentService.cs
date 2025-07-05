@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Application.Dtos.PaymentDtos;
 using Application.Repositories.Interfaces;
@@ -14,29 +13,35 @@ namespace Application.Services.Implementations
 {
     public class PaymentService : IPaymentService
     {
-        private readonly HttpClient _httpClient;
         private readonly IPaymentRepository _paymentRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IDiscountCodeService _discountCodeService;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly string _paymobApiKey;
-        private readonly string _paymobIntegrationId;
-        private readonly string _paymobIframeId;
-        private readonly string _paymobHmac;
+        private readonly string _kashierMerchantId;
+        private readonly string _kashierApiKey;
+        private readonly bool _kashierTestMode;
+        private readonly string _merchantRedirectUrl;
+        private readonly string _serverWebhookUrl;
 
         public PaymentService(
-            HttpClient httpClient,
             IPaymentRepository paymentRepository,
             ISubscriptionRepository subscriptionRepository,
+            IDiscountCodeService discountCodeService,
             UserManager<ApplicationUser> userManager)
         {
-            _httpClient = httpClient;
             _paymentRepository = paymentRepository;
             _subscriptionRepository = subscriptionRepository;
+            _discountCodeService = discountCodeService;
             _userManager = userManager;
-            _paymobApiKey = Environment.GetEnvironmentVariable("PAYMOB_API_KEY");
-            _paymobIntegrationId = Environment.GetEnvironmentVariable("PAYMOB_INTEGRATION_ID");
-            _paymobIframeId = Environment.GetEnvironmentVariable("PAYMOB_IFRAME_ID");
-            _paymobHmac = Environment.GetEnvironmentVariable("PAYMOB_HMAC");
+            _kashierMerchantId = Environment.GetEnvironmentVariable("KASHIER_MERCHANT_ID")
+                ?? throw new Exception("Kashier Merchant ID not configured.");
+            _kashierApiKey = Environment.GetEnvironmentVariable("KASHIER_API_KEY")
+                ?? throw new Exception("Kashier API Key not configured.");
+            _kashierTestMode = Environment.GetEnvironmentVariable("KASHIER_TEST_MODE") == "true";
+            _merchantRedirectUrl = Environment.GetEnvironmentVariable("KASHIER_MERCHANT_REDIRECT_URL")
+                ?? "https://yourwebsite.com/redirect"; // Replace with your actual redirect URL
+            _serverWebhookUrl = Environment.GetEnvironmentVariable("KASHIER_SERVER_WEBHOOK_URL")
+                ?? "https://yourwebsite.com/webhook"; // Replace with your actual webhook URL
         }
 
         public async Task<PaymentInitiateResponseDto> InitiatePaymentAsync(PaymentInitiateRequestDto request, string userId)
@@ -49,35 +54,75 @@ namespace Application.Services.Implementations
             if (subscription == null)
                 throw new Exception("Subscription not found.");
 
-            // Step 1: Authenticate with Paymob
-            var authResponse = await AuthenticateAsync();
-            var authToken = authResponse.Token;
+            // Apply discount if provided
+            decimal finalAmount = request.Amount;
+            string appliedDiscountCode = null;
+            if (!string.IsNullOrEmpty(request.DiscountCode))
+            {
+                finalAmount = await _discountCodeService.ValidateAndApplyDiscountAsync(request.DiscountCode, request.Amount);
+                appliedDiscountCode = request.DiscountCode;
+            }
 
-            // Step 2: Create Order
-            var orderResponse = await CreateOrderAsync(authToken, request.Amount, request.SubscriptionId.ToString());
+            // Generate order hash
+            var paymentId = Guid.NewGuid().ToString();
+            var orderHash = GenerateKashierOrderHash(finalAmount, "EGP", request.SubscriptionId.ToString());
 
-            // Step 3: Generate Payment Token
-            var paymentTokenResponse = await GeneratePaymentTokenAsync(authToken, orderResponse.OrderId, request.Amount, user);
-
-            // Step 4: Store Payment
+            // Store Payment
             var payment = new Payment
             {
                 Id = Guid.NewGuid(),
                 SubscriptionId = request.SubscriptionId,
                 UserId = userId,
-                Amount = request.Amount,
+                Amount = finalAmount,
+                OriginalAmount = request.Amount,
                 Currency = "EGP",
                 PaymentMethod = request.PaymentMethod,
-                TransactionId = paymentTokenResponse.Token,
+                TransactionId = paymentId,
                 Status = "Pending",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                DiscountCode = appliedDiscountCode
             };
             await _paymentRepository.AddAsync(payment);
 
+            // Prepare iframe attributes
+            var customerData = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                email = user.Email,
+                firstName = user.FirstName,
+                lastName = user.LastName,
+                phone = user.PhoneNumber ?? "NA"
+            });
+
             return new PaymentInitiateResponseDto
             {
-                PaymentToken = paymentTokenResponse.Token,
-                IframeUrl = $"https://accept.paymob.com/api/acceptance/iframes/{_paymobIframeId}?payment_token={paymentTokenResponse.Token}"
+                PaymentToken = paymentId,
+                IframeUrl = "https://payments.kashier.io/kashier-checkout.js",
+                IframeAttributes = new
+                {
+                    data_amount = finalAmount.ToString(),
+                    data_hash = orderHash,
+                    data_currency = "EGP",
+                    data_orderId = request.SubscriptionId.ToString(),
+                    data_merchantId = _kashierMerchantId,
+                    data_merchantRedirect = Uri.EscapeDataString(_merchantRedirectUrl),
+                    data_serverWebhook = Uri.EscapeDataString(_serverWebhookUrl),
+                    data_mode = _kashierTestMode ? "test" : "live",
+                    data_metaData = System.Text.Json.JsonSerializer.Serialize(new { customKey = "subscription", subscriptionId = request.SubscriptionId }),
+                    data_description = $"Subscription {request.SubscriptionId}",
+                    data_allowedMethods = "card,bank_installments,wallet,fawry",
+                    data_defaultMethod = "card",
+                    data_redirectMethod = "get",
+                    data_failureRedirect = "TRUE",
+                    data_paymentRequestId = paymentId,
+                    data_type = "external",
+                    data_brandColor = "#2da44e", // Default Kashier brand color
+                    data_display = "en",
+                    data_manualCapture = "FALSE",
+                    data_customer = customerData,
+                    data_saveCard = "optional",
+                    data_interactionSource = "ECOMMERCE",
+                    data_enable3DS = "true"
+                }
             };
         }
 
@@ -87,91 +132,62 @@ namespace Application.Services.Implementations
             if (payment == null)
                 throw new Exception("Payment not found.");
 
-            payment.Status = callback.Success ? "Completed" : "Failed";
+            // Validate signature
+            if (!ValidateKashierSignature(callback))
+                throw new Exception("Invalid callback signature.");
+
+            payment.Status = callback.PaymentStatus.ToUpper() == "SUCCESS" ? "Completed" : "Failed";
             await _paymentRepository.UpdateAsync(payment);
 
-            if (callback.Success)
+            if (callback.PaymentStatus.ToUpper() == "SUCCESS")
             {
                 var subscription = await _subscriptionRepository.GetByIdAsync(payment.SubscriptionId);
                 if (subscription != null)
                 {
-                    subscription.IsActive = true; // Custom property to mark subscription as active
+                    subscription.IsActive = true;
                     await _subscriptionRepository.UpdateAsync(subscription);
                 }
             }
         }
 
-        private async Task<PaymobAuthResponse> AuthenticateAsync()
+        private string GenerateKashierOrderHash(decimal amount, string currency, string orderId)
         {
-            var requestBody = new { api_key = _paymobApiKey };
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync("https://accept.paymob.com/api/auth/tokens", content);
-            response.EnsureSuccessStatusCode();
-            return JsonSerializer.Deserialize<PaymobAuthResponse>(await response.Content.ReadAsStringAsync());
-        }
-
-        private async Task<PaymobOrderResponse> CreateOrderAsync(string authToken, decimal amount, string subscriptionId)
-        {
-            var requestBody = new
+            var path = $"/?payment={_kashierMerchantId}.{orderId}.{amount}.{currency}";
+            using (var hmac = new HMACSHA256(Encoding.ASCII.GetBytes(_kashierApiKey)))
             {
-                auth_token = authToken,
-                delivery_needed = false,
-                amount_cents = (int)(amount * 100),
-                currency = "EGP",
-                merchant_order_id = subscriptionId
-            };
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync("https://accept.paymob.com/api/ecommerce/orders", content);
-            response.EnsureSuccessStatusCode();
-            return JsonSerializer.Deserialize<PaymobOrderResponse>(await response.Content.ReadAsStringAsync());
+                var hashBytes = hmac.ComputeHash(Encoding.ASCII.GetBytes(path));
+                return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+            }
         }
 
-        private async Task<PaymobPaymentTokenResponse> GeneratePaymentTokenAsync(string authToken, string orderId, decimal amount, ApplicationUser user)
+        private bool ValidateKashierSignature(PaymentCallbackDto callback)
         {
-            var requestBody = new
+            var path = "";
+            var queryParams = new System.Collections.Specialized.NameValueCollection
             {
-                auth_token = authToken,
-                amount_cents = (int)(amount * 100),
-                expiration = 3600,
-                order_id = orderId,
-                billing_data = new
-                {
-                    email = user.Email,
-                    first_name = user.FirstName,
-                    last_name = user.LastName,
-                    phone_number = user.PhoneNumber ?? "NA",
-                    apartment = "NA",
-                    floor = "NA",
-                    street = "NA",
-                    building = "NA",
-                    shipping_method = "NA",
-                    postal_code = "NA",
-                    city = "NA",
-                    country = "Egypt",
-                    state = "NA"
-                },
-                currency = "EGP",
-                integration_id = _paymobIntegrationId
+                { "paymentStatus", callback.PaymentStatus },
+                { "cardDataToken", callback.CardDataToken ?? "" },
+                { "maskedCard", callback.MaskedCard ?? "" },
+                { "merchantOrderId", callback.MerchantOrderId ?? "" },
+                { "orderId", callback.OrderId ?? "" },
+                { "cardBrand", callback.CardBrand ?? "" },
+                { "transactionId", callback.TransactionId ?? "" },
+                { "currency", callback.Currency ?? "" }
             };
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync("https://accept.paymob.com/api/acceptance/payment_keys", content);
-            response.EnsureSuccessStatusCode();
-            return JsonSerializer.Deserialize<PaymobPaymentTokenResponse>(await response.Content.ReadAsStringAsync());
-        }
 
-        private class PaymobAuthResponse
-        {
-            public string Token { get; set; }
-        }
+            foreach (var key in queryParams.AllKeys.OrderBy(k => k))
+            {
+                if (key == "signature" || key == "mode")
+                    continue;
+                path += $"{(path.Length > 0 ? "&" : "")}{key}={queryParams[key]}";
+            }
 
-        private class PaymobOrderResponse
-        {
-            public string OrderId { get; set; }
-        }
-
-        private class PaymobPaymentTokenResponse
-        {
-            public string Token { get; set; }
+            using (var hmac = new HMACSHA256(Encoding.ASCII.GetBytes(_kashierApiKey)))
+            {
+                var hashBytes = hmac.ComputeHash(Encoding.ASCII.GetBytes(path));
+                var computedSignature = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+                return computedSignature == callback.Signature?.ToLower();
+            }
         }
     }
 }

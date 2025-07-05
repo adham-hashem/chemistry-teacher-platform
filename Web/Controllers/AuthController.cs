@@ -100,5 +100,19 @@ namespace Web.Controllers
                 return BadRequest(new { Message = ex.Message });
             }
         }
+
+        [HttpPost("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailDto verifyEmailDto)
+        {
+            try
+            {
+                await _authService.VerifyEmailAsync(verifyEmailDto);
+                return Ok(new { Message = "Email verified successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
     }
 }

@@ -12,6 +12,7 @@ namespace Application.Repositories.Interfaces
         Task<ExamResult> GetByIdAsync(Guid id);
         Task<List<ExamResult>> GetByExamIdAsync(Guid examId);
         Task<List<ExamResult>> GetByUserIdAsync(string userId);
+        Task<ExamResult> GetByExamIdAndUserIdAsync(Guid examId, string userId);
         Task AddAsync(ExamResult examResult);
         Task UpdateAsync(ExamResult examResult);
         Task DeleteAsync(Guid id);

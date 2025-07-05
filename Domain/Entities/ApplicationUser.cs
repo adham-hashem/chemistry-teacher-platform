@@ -31,5 +31,7 @@ namespace Domain.Entities
         public List<Notification> Notifications { get; set; } = new List<Notification>();
         public List<LessonAccessCode> LessonAccessCodes { get; set; } = new List<LessonAccessCode>();
         public List<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+        public bool IsEmailVerified { get; set; } = false;
+        public string? EmailVerificationToken { get; set; }
     }
 }
