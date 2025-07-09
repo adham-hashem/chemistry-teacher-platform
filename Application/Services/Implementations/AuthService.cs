@@ -50,9 +50,6 @@ namespace Application.Services.Implementations
             if (!result.Succeeded)
                 throw new Exception(string.Join("; ", result.Errors.Select(e => e.Description)));
 
-            //if (!await _roleManager.RoleExistsAsync("registerDto.Role"))
-            //    await _roleManager.CreateAsync(new IdentityRole(registerDto.Role));
-
             await _userManager.AddToRoleAsync(user, "Student");
 
             return await _jwtService.GenerateJwtToken(user);
@@ -64,7 +61,11 @@ namespace Application.Services.Implementations
             if (user == null || !await _userManager.CheckPasswordAsync(user, loginDto.Password))
                 throw new Exception("Invalid email or password.");
 
-            return await _jwtService.GenerateJwtToken(user);
+            var roles = await _userManager.GetRolesAsync(user);
+            if (roles == null || !roles.Any())
+                throw new Exception("User has no assigned roles.");
+
+            return await _jwtService.GenerateJwtToken(user, roles);
         }
 
         public async Task<TokenResponseDto> RefreshTokenAsync(string refreshToken)
@@ -78,8 +79,12 @@ namespace Application.Services.Implementations
             if (user == null)
                 throw new Exception("User not found.");
 
+            var roles = await _userManager.GetRolesAsync(user);
+            if (roles == null || !roles.Any())
+                throw new Exception("User has no assigned roles.");
+
             await _refreshTokenRepository.RevokeAsync(refreshToken);
-            return await _jwtService.GenerateJwtToken(user);
+            return await _jwtService.GenerateJwtToken(user, roles);
         }
 
         public async Task RevokeRefreshTokenAsync(string refreshToken)
@@ -183,12 +188,12 @@ namespace Application.Services.Implementations
                                         <p>Thank you,<br>Chemistry Teacher</p>
                                     </div>
                                     <div class=""footer"">
-                                        <p>&copy; {DateTime.UtcNow.Year} YourApp. All rights reserved.</p>
+                                        <p>© {DateTime.UtcNow.Year} YourApp. All rights reserved.</p>
                                         <p>If you have any questions, contact us at <a href=""mailto:adhamhashem2025@gmail.com"">adhamhashem2025@gmail.com</a>.</p>
                                     </div>
                                 </div>
                             </body>
-                            </html>"; ;
+                            </html>";
 
             await _emailService.SendEmailAsync(user.Email, subject, body, isHtml: true);
         }
@@ -227,7 +232,6 @@ namespace Application.Services.Implementations
             if (user == null)
                 throw new Exception("User not found.");
 
-            // Verify the token
             var result = await _userManager.ConfirmEmailAsync(user, verifyEmailDto.Token);
             if (!result.Succeeded)
                 throw new Exception("Invalid or expired verification token.");

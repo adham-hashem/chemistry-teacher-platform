@@ -10,7 +10,7 @@ namespace Application.Services.Interfaces
 {
     public interface IJwtService
     {
-        Task<TokenResponseDto> GenerateJwtToken(ApplicationUser user);
+        Task<TokenResponseDto> GenerateJwtToken(ApplicationUser user, IList<string> roles = null);
         Task<bool> ValidateRefreshTokenAsync(string refreshToken);
     }
 }

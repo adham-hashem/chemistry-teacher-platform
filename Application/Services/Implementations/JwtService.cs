@@ -28,18 +28,26 @@ namespace Application.Services.Implementations
             _userManager = userManager;
         }
 
-        public async Task<TokenResponseDto> GenerateJwtToken(ApplicationUser user)
+        public async Task<TokenResponseDto> GenerateJwtToken(ApplicationUser user, IList<string> roles = null)
         {
-            var roles = await _userManager.GetRolesAsync(user);
+            // Fetch roles if not provided
+            var userRoles = roles ?? await _userManager.GetRolesAsync(user);
+            if (userRoles == null)
+                throw new Exception("Unable to retrieve user roles.");
+
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
-            claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+            claims.AddRange(userRoles.Select(role => new Claim(ClaimTypes.Role, role)));
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("CTP_DEV_JWT_SECRET")!));
+            var secretKey = Environment.GetEnvironmentVariable("CTP_DEV_JWT_SECRET");
+            if (string.IsNullOrEmpty(secretKey))
+                throw new Exception("JWT secret key is not configured.");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var accessTokenExpires = DateTime.UtcNow.AddDays(4);
@@ -67,7 +75,8 @@ namespace Application.Services.Implementations
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken.Token,
-                AccessTokenExpires = accessTokenExpires
+                AccessTokenExpires = accessTokenExpires,
+                Roles = userRoles.ToList()
             };
         }
 
