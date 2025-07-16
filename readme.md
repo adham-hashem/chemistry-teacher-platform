@@ -1,6 +1,6 @@
 # CT Platform API
 
-![.NET](https://img.shields.io/badge/.NET-8.0-blueviolet)
+![.NET](https://img.shields.io/badge/.NET-9.0-blueviolet)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 
