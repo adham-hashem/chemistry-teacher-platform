@@ -39,9 +39,9 @@ namespace Application.Services.Implementations
                 ?? throw new Exception("Kashier API Key not configured.");
             _kashierTestMode = Environment.GetEnvironmentVariable("KASHIER_TEST_MODE") == "true";
             _merchantRedirectUrl = Environment.GetEnvironmentVariable("KASHIER_MERCHANT_REDIRECT_URL")
-                ?? "https://yourwebsite.com/redirect"; // Replace with your actual redirect URL
+                ?? "https://mywebsite.com/redirect";
             _serverWebhookUrl = Environment.GetEnvironmentVariable("KASHIER_SERVER_WEBHOOK_URL")
-                ?? "https://yourwebsite.com/webhook"; // Replace with your actual webhook URL
+                ?? "https://mywebsite.com/webhook";
         }
 
         public async Task<PaymentInitiateResponseDto> InitiatePaymentAsync(PaymentInitiateRequestDto request, string userId)
@@ -115,7 +115,7 @@ namespace Application.Services.Implementations
                     data_failureRedirect = "TRUE",
                     data_paymentRequestId = paymentId,
                     data_type = "external",
-                    data_brandColor = "#2da44e", // Default Kashier brand color
+                    data_brandColor = "#2da44e",
                     data_display = "en",
                     data_manualCapture = "FALSE",
                     data_customer = customerData,

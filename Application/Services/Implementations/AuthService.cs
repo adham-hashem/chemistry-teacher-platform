@@ -99,7 +99,7 @@ namespace Application.Services.Implementations
                 throw new Exception("User not found.");
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var callbackUrl = $"https://yourapp.com/reset-password?email={email}&token={Uri.EscapeDataString(token)}";
+            var callbackUrl = $"https://myapp.com/reset-password?email={email}&token={Uri.EscapeDataString(token)}";
 
             var subject = "Password Reset Request";
             var body = $@"<!DOCTYPE html>
@@ -220,7 +220,7 @@ namespace Application.Services.Implementations
             await _userManager.UpdateAsync(user);
 
             var encodedToken = HttpUtility.UrlEncode(token);
-            var verificationLink = $"https://yourapp.com/verify-email?email={HttpUtility.UrlEncode(email)}&token={encodedToken}";
+            var verificationLink = $"https://myapp.com/verify-email?email={HttpUtility.UrlEncode(email)}&token={encodedToken}";
             var emailBody = $"<p>Please verify your email by clicking <a href='{verificationLink}'>here</a>.</p>";
 
             await _emailService.SendEmailAsync(email, "Verify Your Email", emailBody, isHtml: true);

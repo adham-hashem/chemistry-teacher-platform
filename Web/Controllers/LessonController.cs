@@ -88,6 +88,22 @@ namespace Web.Controllers
             }
         }
 
+        [Authorize(Policy = "StudentOrTeacher")]
+        [HttpGet("{lessonId}")]
+        public async Task<IActionResult> GetLessonById(Guid lessonId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var lesson = await _lessonService.GetLessonByIdAsync(lessonId, userId);
+                return Ok(lesson);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [Authorize(Policy = "Student")]
         [HttpGet("{lessonId}/access")]
         public async Task<IActionResult> CheckLessonAccess(Guid lessonId)

@@ -17,9 +17,9 @@ namespace Domain.Entities
         public ApplicationUser User { get; set; }
         public decimal Amount { get; set; }
         public string Currency { get; set; }
-        public string PaymentMethod { get; set; } // e.g., "Card", "VodafoneCash", "EtisalatCash"
+        public string PaymentMethod { get; set; } // "Card", "VodafoneCash", "EtisalatCash"
         public string TransactionId { get; set; }
-        public string Status { get; set; } // e.g., "Pending", "Completed", "Failed"
+        public string Status { get; set; } // "Pending", "Completed", "Failed"
         public DateTime CreatedAt { get; set; }
         public string? DiscountCode { get; set; }
         public decimal? OriginalAmount { get; set; }

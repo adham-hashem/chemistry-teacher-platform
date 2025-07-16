@@ -24,6 +24,11 @@ appsettings.json
 # Others
 Web/Web.csproj.user
 
+!uploads/.gitkeep
+
+Web/wwwroot/uploads/*
+Web/wwwroot/!uploads/.gitkeep
+
 f.py
 f.bat
 f.txt

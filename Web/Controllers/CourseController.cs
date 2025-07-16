@@ -19,7 +19,7 @@ namespace Web.Controllers
             _courseService = courseService;
         }
 
-        [Authorize(Policy = "Teacher")]
+        [Authorize(Policy = "StudentOrTeacher")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {

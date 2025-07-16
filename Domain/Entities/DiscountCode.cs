@@ -18,19 +18,12 @@ namespace Domain.Entities
         [Required]
         [Range(0, 100)]
         public decimal DiscountPercentage { get; set; }
-
         public DateTime ValidFrom { get; set; }
-
         public DateTime ValidUntil { get; set; }
-
         public int? MaxUses { get; set; }
-
         public int Uses { get; set; } = 0;
-
         public bool IsActive { get; set; } = true;
-
         public string TeacherId { get; set; }
-
         public ApplicationUser Teacher { get; set; }
     }
 }

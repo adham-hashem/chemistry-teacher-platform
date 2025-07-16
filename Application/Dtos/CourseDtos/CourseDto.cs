@@ -30,6 +30,6 @@ namespace Application.Dtos.CourseDtos
         public string DetailedDescription { get; set; } = string.Empty;
         public string Requirements { get; set; } = string.Empty;
         public string WhatStudentsWillLearn { get; set; } = string.Empty;
-        public List<LessonDto> Lessons { get; set; } = new List<LessonDto>();
+        public List<LessonDto>? Lessons { get; set; } = new List<LessonDto>();
     }
 }

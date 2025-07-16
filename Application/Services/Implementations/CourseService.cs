@@ -47,19 +47,19 @@ namespace Application.Services.Implementations
                 DetailedDescription = course.DetailedDescription,
                 Requirements = course.Requirements,
                 WhatStudentsWillLearn = course.WhatStudentsWillLearn,
-                Lessons = course.Lessons?.Select(l => new LessonDto
-                {
-                    Id = l.Id,
-                    Title = l.Title,
-                    VideoUrl = l.VideoUrl,
-                    LessonSummaryText = l.LessonSummaryText,
-                    LessonSummaryPdfPath = l.LessonSummaryPdfPath,
-                    EquationsTablePdfPath = l.EquationsTablePdfPath,
-                    IsFree = l.IsFree,
-                    MonthAssigned = l.MonthAssigned,
-                    AdditionalResources = l.AdditionalResources,
-                    CourseId = l.CourseId
-                }).ToList() ?? new List<LessonDto>()
+                //Lessons = course.Lessons?.Select(l => new LessonDto
+                //{
+                //    Id = l.Id,
+                //    Title = l.Title,
+                //    VideoUrl = l.VideoUrl,
+                //    LessonSummaryText = l.LessonSummaryText,
+                //    LessonSummaryPdfPath = l.LessonSummaryPdfPath,
+                //    EquationsTablePdfPath = l.EquationsTablePdfPath,
+                //    IsFree = l.IsFree,
+                //    MonthAssigned = l.MonthAssigned,
+                //    AdditionalResources = l.AdditionalResources,
+                //    CourseId = l.CourseId
+                //}).ToList() ?? new List<LessonDto>()
             };
         }
 

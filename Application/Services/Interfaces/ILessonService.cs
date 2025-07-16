@@ -13,5 +13,6 @@ namespace Application.Services.Interfaces
         Task UpdateAsync(LessonDto lessonDto, string userId);
         Task DeleteAsync(Guid id, string userId);
         Task<List<LessonDto>> GetLessonsByCourseAsync(Guid courseId, string userId);
+        Task<LessonDto> GetLessonByIdAsync(Guid lessonId, string userId);
     }
 }
