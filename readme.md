@@ -85,16 +85,48 @@ The **CT Platform API** is a secure, RESTful Web API built with **ASP.NET Core**
 
 ## Configuration
 
-### JWT Settings
-Configure JWT in `appsettings.json`:
-```json
-{
-  "Jwt": {
-    "Issuer": "your-issuer",
-    "Audience": "your-audience",
-    "Key": "your-secure-key-with-at-least-32-characters"
-  }
-}
+### .env file
+```bash
+# Database Connection
+CTPlatform_DEV_DATABASE=""
+
+# Initial Teacher Login Cred
+TEACHER_USERNAME=""
+TEACHER_PASSWORD=""
+TEACHER_EMAIL=""
+
+# Initial Student Login Cred
+STUDENT_USERNAME=""
+STUDENT_PASSWORD=""
+STUDENT_EMAIL=""
+
+# JWT Authentication
+CTP_DEV_JWT_SECRET=""
+CTP_DEV_JWT_ISSUER=""
+CTP_DEV_JWT_AUDIENCE=""
+CTP_DEV_JWT_EXPIRATION_DAYS=
+
+# Email Settings
+SMTP_SERVER=""
+SMTP_PORT_NUMBER=""
+SMTP_SENDER_EMAIL=""
+SMTP_APP_PASSWORD=""
+
+# Paymob
+PAYMOB_API_KEY=""
+PAYMOB_CARD_INTEGRATION_ID=""
+PAYMOB_CARD_IFRAME_ID=""
+PAYMOB_WALLET_INTEGRATION_ID=""
+PAYMOB_WALLET_IFRAME_ID=""
+PAYMOB_HMAC=""
+
+# Kashier
+KASHIER_MERCHANT_ID=""
+KASHIER_API_KEY=""
+KASHIER_TEST_MODE=
+KASHIER_MERCHANT_REDIRECT_URL=""
+KASHIER_SERVER_WEBHOOK_URL=""
+
 ```
 
 ### CORS
