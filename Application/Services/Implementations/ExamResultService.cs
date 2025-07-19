@@ -90,25 +90,30 @@ namespace Application.Services.Implementations
             }).ToList();
         }
 
-        public async Task<List<ExamResultDto>> GetByUserIdAsync(string userId)
+        public async Task<ExamResultDto> GetByUserIdAndExamIdAsync(string userId, Guid examId)
         {
             if (string.IsNullOrEmpty(userId))
                 throw new ArgumentException("User ID is required.");
+            if (examId == Guid.Empty)
+                throw new ArgumentException("Exam ID is required.");
 
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null || !await _userManager.IsInRoleAsync(user, "Student"))
                 throw new UnauthorizedAccessException("Only students can view their own exam results.");
 
-            var examResults = await _examResultRepository.GetByUserIdAsync(userId);
-            return examResults.Select(er => new ExamResultDto
+            var examResult = await _examResultRepository.GetByExamIdAndUserIdAsync(examId, userId);
+            if (examResult == null)
+                return null;
+
+            return new ExamResultDto
             {
-                Id = er.Id,
-                ExamId = er.ExamId,
-                UserId = er.UserId,
-                Answers = er.Answers,
-                Score = er.Score,
-                SubmittedAt = er.SubmittedAt
-            }).ToList();
+                Id = examResult.Id,
+                ExamId = examResult.ExamId,
+                UserId = examResult.UserId,
+                Answers = examResult.Answers,
+                Score = examResult.Score,
+                SubmittedAt = examResult.SubmittedAt
+            };
         }
 
         public async Task<ExamResultDto> SubmitAsync(SubmitExamDto submitExamDto, string userId)

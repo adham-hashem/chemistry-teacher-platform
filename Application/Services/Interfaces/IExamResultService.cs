@@ -11,7 +11,7 @@ namespace Application.Services.Interfaces
     {
         Task<ExamResultDto> GetByIdAsync(Guid id, string userId);
         Task<List<ExamResultDto>> GetByExamIdAsync(Guid examId, string userId);
-        Task<List<ExamResultDto>> GetByUserIdAsync(string userId);
+        Task<ExamResultDto> GetByUserIdAndExamIdAsync(string userId, Guid examId);
         Task<ExamResultDto> SubmitAsync(SubmitExamDto submitExamDto, string userId);
         Task DeleteAsync(Guid id, string userId);
         //Task<bool> HasLessonAccessAsync(string userId, Guid lessonId);

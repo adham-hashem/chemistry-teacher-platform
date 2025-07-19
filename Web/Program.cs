@@ -17,7 +17,9 @@ using System.Threading.RateLimiting;
 
 Env.Load();
 
+// Configure Serilog with verbose logging and request logging
 Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Verbose() // Increased verbosity for debugging
     .WriteTo.Console()
     .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
@@ -26,6 +28,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
 builder.Host.UseSerilog();
+
+// Log environment variables for debugging (avoid logging sensitive data in production)
+Log.Information("JWT Issuer: {Issuer}, DB: {DB}",
+    Environment.GetEnvironmentVariable("CTP_DEV_JWT_ISSUER"),
+    Environment.GetEnvironmentVariable("CTPlatform_DEV_DATABASE"));
 
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
@@ -62,7 +69,9 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(Environment.GetEnvironmentVariable("CTPlatform_DEV_DATABASE") ??
         builder.Configuration.GetConnectionString("DefaultConnection") ??
-        throw new InvalidOperationException("Database connection string is not configured.")));
+        throw new InvalidOperationException("Database connection string is not configured."))
+        .EnableSensitiveDataLogging() // Caution: Use only in development
+        .EnableDetailedErrors()); // Detailed EF Core errors for debugging
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
@@ -86,6 +95,22 @@ builder.Services.AddAuthentication(options =>
             Environment.GetEnvironmentVariable("CTP_DEV_JWT_SECRET") ??
             throw new InvalidOperationException("JWT secret is not configured")))
     };
+    // Add JWT debugging events
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Log.Error("Authentication failed: {Error}, Path: {Path}",
+                context.Exception.Message, context.Request.Path);
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Log.Information("Token validated for user: {User}, Path: {Path}",
+                context.Principal?.Identity?.Name, context.Request.Path);
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization(options =>
@@ -95,6 +120,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("StudentOrTeacher", policy => policy.RequireRole("Student", "Teacher"));
 });
 
+// Rate limiting (commented out, but included for reference)
+// If enabled, check X-Rate-Limit-* headers in responses for debugging
 //builder.Services.AddRateLimiter(options =>
 //{
 //    options.AddFixedWindowLimiter("General", opt =>
@@ -117,17 +144,25 @@ builder.Services.AddAuthorization(options =>
 //    });
 //});
 
+// Use a specific CORS policy for debugging (replace with your frontend URL)
 builder.Services.AddCors(options =>
 {
+    options.AddPolicy("AllowSpecific", builder =>
+    {
+        builder.WithOrigins("http://localhost:5173/")
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
     options.AddPolicy("AllowAll", builder =>
     {
         builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+                .AllowAnyMethod()
+                .AllowAnyHeader();
     });
 });
 
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddScoped<IDiscountCodeRepository, DiscountCodeRepository>();
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
 builder.Services.AddScoped<IExamResultRepository, ExamResultRepository>();
 builder.Services.AddScoped<ILessonAccessCodeRepository, LessonAccessCodeRepository>();
@@ -136,7 +171,9 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
+
 builder.Services.AddScoped<IExamService, ExamService>();
+builder.Services.AddScoped<IDiscountCodeService, DiscountCodeService>();
 builder.Services.AddScoped<IExamResultService, ExamResultService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -149,21 +186,47 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
+// Add request logging middleware for debugging
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"]);
+        diagnosticContext.Set("ClientIP", httpContext.Connection.RemoteIpAddress?.ToString());
+    };
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowAll"); // Use specific CORS policy for debugging
 app.UseStaticFiles();
 //app.UseRateLimiter();
+
+// Add custom middleware to log authorization failures
 app.UseWhen(context => context.Request.Method != "OPTIONS", appBuilder =>
 {
+    appBuilder.Use(async (context, next) =>
+    {
+        await next();
+        if (context.Response.StatusCode == 403)
+        {
+            Log.Warning("Authorization failed for user: {User}, Path: {Path}",
+                context.User.Identity?.Name, context.Request.Path);
+        }
+    });
     appBuilder.UseAuthentication();
     appBuilder.UseAuthorization();
 });
+
 app.MapControllers();
+
+// Add health check endpoint for debugging
+app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));
 
 using (var scope = app.Services.CreateScope())
 {

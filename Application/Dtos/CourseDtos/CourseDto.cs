@@ -14,22 +14,22 @@ namespace Application.Dtos.CourseDtos
         public Guid Id { get; set; }
 
         [Required]
-        public string Name { get; set; } = string.Empty;
+        public string? Name { get; set; } = string.Empty;
 
         [Required]
-        public string Category { get; set; } = string.Empty;
+        public string? Category { get; set; } = string.Empty;
 
         [Required]
-        public string EducationalLevel { get; set; } = string.Empty;
+        public string? EducationalLevel { get; set; } = string.Empty;
         public string? ImageUrl { get; set; }
         public IFormFile? ImageFile { get; set; }
         public string? IntroductoryVideoUrl { get; set; }
 
         [Required]
-        public string ShortDescription { get; set; } = string.Empty;
-        public string DetailedDescription { get; set; } = string.Empty;
-        public string Requirements { get; set; } = string.Empty;
-        public string WhatStudentsWillLearn { get; set; } = string.Empty;
+        public string? ShortDescription { get; set; } = string.Empty;
+        public string? DetailedDescription { get; set; } = string.Empty;
+        public string? Requirements { get; set; } = string.Empty;
+        public string? WhatStudentsWillLearn { get; set; } = string.Empty;
         public List<LessonDto>? Lessons { get; set; } = new List<LessonDto>();
     }
 }

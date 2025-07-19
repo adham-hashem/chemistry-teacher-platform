@@ -56,8 +56,8 @@ namespace Web.Controllers
         }
 
         [Authorize(Roles = "Student")]
-        [HttpGet("user")]
-        public async Task<IActionResult> GetByUserId()
+        [HttpGet("user/exam/{examId}")]
+        public async Task<IActionResult> GetByUserId(Guid examId)
         {
             try
             {
@@ -65,8 +65,11 @@ namespace Web.Controllers
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized(new { message = "User ID not found in token." });
 
-                var examResults = await _examResultService.GetByUserIdAsync(userId);
-                return Ok(examResults);
+                var examResult = await _examResultService.GetByUserIdAndExamIdAsync(userId, examId);
+                if (examResult == null)
+                    return NotFound(new { message = "No exam result found for the specified exam and user." });
+
+                return Ok(examResult);
             }
             catch (UnauthorizedAccessException)
             {
