@@ -97,5 +97,37 @@ namespace Web.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [Authorize(Roles = "Teacher")]
+        [HttpDelete("codes/{lessonId}")]
+        public async Task<IActionResult> DeleteCodesByLesson(Guid lessonId)
+        {
+            try
+            {
+                var teacherId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                await _lessonAccessCodeService.DeleteCodesByLessonAsync(lessonId, teacherId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Teacher")]
+        [HttpDelete("{codeId}")]
+        public async Task<IActionResult> DeleteCodeAsync(Guid codeId)
+        {
+            try
+            {
+                var teacherId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                await _lessonAccessCodeService.DeleteCodeAsync(codeId, teacherId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

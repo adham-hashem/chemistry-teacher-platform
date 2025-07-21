@@ -144,6 +144,28 @@ namespace Application.Services.Implementations
             }
         }
 
+        public async Task DeleteCodesByLessonAsync(Guid lessonId, string teacherId)
+        {
+            var teacher = await _userManager.FindByIdAsync(teacherId);
+            if (teacher == null || !await _userManager.IsInRoleAsync(teacher, "Teacher"))
+                throw new Exception("Only teachers can delete access codes.");
+
+            var lesson = await _lessonRepository.GetByIdAsync(lessonId);
+            if (lesson == null)
+                throw new Exception("Lesson not found.");
+
+            await _codeRepository.DeleteByLessonIdAsync(lessonId);
+        }
+
+        public async Task DeleteCodeAsync(Guid codeId, string teacherId)
+        {
+            var teacher = await _userManager.FindByIdAsync(teacherId);
+            if (teacher == null || !await _userManager.IsInRoleAsync(teacher, "Teacher"))
+                throw new Exception("Only teachers can delete access codes.");
+
+            await _codeRepository.DeleteAsync(codeId);
+        }
+
         private string GenerateUniqueCode()
         {
             return Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();

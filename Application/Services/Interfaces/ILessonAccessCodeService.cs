@@ -15,5 +15,7 @@ namespace Application.Services.Interfaces
         Task<List<LessonAccessCodeDto>> GetCodesByLessonAsync(Guid lessonId, string teacherId);
         Task RevokeAccessAsync(Guid lessonId, string userId, string teacherId);
         Task RevokeAllAccessAsync(Guid lessonId, string teacherId);
+        Task DeleteCodesByLessonAsync(Guid lessonId, string teacherId);
+        Task DeleteCodeAsync(Guid codeId, string teacherId);
     }
 }
