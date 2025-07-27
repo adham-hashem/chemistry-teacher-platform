@@ -72,22 +72,67 @@ namespace Application.Services.Implementations
                 throw new UnauthorizedAccessException("User ID is required.");
 
             var user = await _userManager.FindByIdAsync(userId);
-            if (user == null || !await _userManager.IsInRoleAsync(user, "Teacher"))
-                throw new UnauthorizedAccessException("Only teachers can view all exam results.");
+            if (user == null)
+                throw new UnauthorizedAccessException("User not found.");
+
+            bool isTeacher = await _userManager.IsInRoleAsync(user, "Teacher");
+            bool isStudent = await _userManager.IsInRoleAsync(user, "Student");
+
+            if (!isTeacher && !isStudent)
+                throw new UnauthorizedAccessException("User must be a student or teacher.");
 
             var examResults = await _examResultRepository.GetByExamIdAsync(examId);
             if (!examResults.Any())
                 throw new KeyNotFoundException("No results found for the specified exam.");
 
-            return examResults.Select(er => new ExamResultDto
+            var resultsDtos = new List<ExamResultDto>();
+            foreach (var er in examResults)
             {
-                Id = er.Id,
-                ExamId = er.ExamId,
-                UserId = er.UserId,
-                Answers = er.Answers,
-                Score = er.Score,
-                SubmittedAt = er.SubmittedAt
-            }).ToList();
+                if (!isTeacher && er.UserId != userId)
+                    continue;
+
+                string firstName = null;
+                string lastName = null;
+                string email = null;
+
+                if (isTeacher)
+                {
+                    var examUser = await _userManager.FindByIdAsync(er.UserId);
+                    if (examUser != null)
+                    {
+                        firstName = examUser.FirstName;
+                        lastName = examUser.LastName;
+                        email = examUser.Email;
+                    }
+                }
+
+                resultsDtos.Add(new ExamResultDto
+                {
+                    Id = er.Id,
+                    ExamId = er.ExamId,
+                    UserId = er.UserId,
+                    FullName = firstName + " " + lastName,
+                    Email = email,
+                    Answers = er.Answers,
+                    Score = er.Score,
+                    SubmittedAt = er.SubmittedAt
+                });
+            }
+
+            if (!resultsDtos.Any())
+                throw new KeyNotFoundException("No accessible exam results found for the specific lesson.");
+
+            return resultsDtos;
+
+            //return examResults.Select(er => new ExamResultDto
+            //{
+            //    Id = er.Id,
+            //    ExamId = er.ExamId,
+            //    UserId = er.UserId,
+            //    Answers = er.Answers,
+            //    Score = er.Score,
+            //    SubmittedAt = er.SubmittedAt
+            //}).ToList();
         }
 
         public async Task<ExamResultDto> GetByUserIdAndExamIdAsync(string userId, Guid examId)

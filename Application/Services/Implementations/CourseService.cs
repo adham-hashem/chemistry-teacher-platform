@@ -77,7 +77,8 @@ namespace Application.Services.Implementations
                 ShortDescription = course.ShortDescription,
                 DetailedDescription = course.DetailedDescription,
                 Requirements = course.Requirements,
-                WhatStudentsWillLearn = course.WhatStudentsWillLearn
+                WhatStudentsWillLearn = course.WhatStudentsWillLearn,
+                NumberOfLessons = course.Lessons.Count
             }).ToList();
         }
 
