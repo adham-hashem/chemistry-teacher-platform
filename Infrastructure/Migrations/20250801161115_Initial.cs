@@ -40,6 +40,8 @@ namespace Infrastructure.Migrations
                     LastActiveDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IsOnline = table.Column<bool>(type: "bit", nullable: false),
                     VideoCompletionRate = table.Column<double>(type: "float", nullable: false),
+                    IsEmailVerified = table.Column<bool>(type: "bit", nullable: false),
+                    EmailVerificationToken = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -187,6 +189,58 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DiscountCodes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    DiscountPercentage = table.Column<decimal>(type: "decimal(5,2)", nullable: false),
+                    ValidFrom = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ValidUntil = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    MaxUses = table.Column<int>(type: "int", nullable: true),
+                    Uses = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    TeacherId = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DiscountCodes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DiscountCodes_AspNetUsers_TeacherId",
+                        column: x => x.TeacherId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Honors",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StudentId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    TeacherId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    StudentImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Honors", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Honors_AspNetUsers_StudentId",
+                        column: x => x.StudentId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Honors_AspNetUsers_TeacherId",
+                        column: x => x.TeacherId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Notifications",
                 columns: table => new
                 {
@@ -322,7 +376,9 @@ namespace Infrastructure.Migrations
                     PaymentMethod = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     TransactionId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    DiscountCode = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    OriginalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -374,8 +430,11 @@ namespace Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     LessonId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PdfPath = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ExamType = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CertificateThreshold = table.Column<decimal>(type: "decimal(5,2)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -446,6 +505,35 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Certificates",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StudentId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ExamId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CertificateTitle = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    IssuedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    PdfPath = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Certificates", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Certificates_AspNetUsers_StudentId",
+                        column: x => x.StudentId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Certificates_Exams_ExamId",
+                        column: x => x.ExamId,
+                        principalTable: "Exams",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ExamResults",
                 columns: table => new
                 {
@@ -453,7 +541,7 @@ namespace Infrastructure.Migrations
                     ExamId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Answers = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Score = table.Column<int>(type: "int", nullable: false),
+                    Score = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     SubmittedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -481,6 +569,9 @@ namespace Infrastructure.Migrations
                     QuestionText = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Options = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CorrectOptionIndex = table.Column<int>(type: "int", nullable: false),
+                    ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TimeInSeconds = table.Column<int>(type: "int", nullable: false),
+                    DefaultOptionIndex = table.Column<int>(type: "int", nullable: false),
                     ExamId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
@@ -534,6 +625,16 @@ namespace Infrastructure.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Certificates_ExamId",
+                table: "Certificates",
+                column: "ExamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Certificates_StudentId_ExamId",
+                table: "Certificates",
+                columns: new[] { "StudentId", "ExamId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Comments_LessonId",
                 table: "Comments",
                 column: "LessonId");
@@ -542,6 +643,17 @@ namespace Infrastructure.Migrations
                 name: "IX_Comments_UserId_LessonId",
                 table: "Comments",
                 columns: new[] { "UserId", "LessonId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DiscountCodes_Code",
+                table: "DiscountCodes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DiscountCodes_TeacherId",
+                table: "DiscountCodes",
+                column: "TeacherId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ExamResults_ExamId",
@@ -557,6 +669,16 @@ namespace Infrastructure.Migrations
                 name: "IX_Exams_LessonId",
                 table: "Exams",
                 column: "LessonId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Honors_StudentId_TeacherId",
+                table: "Honors",
+                columns: new[] { "StudentId", "TeacherId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Honors_TeacherId",
+                table: "Honors",
+                column: "TeacherId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_LessonAccessCodes_Code",
@@ -662,10 +784,19 @@ namespace Infrastructure.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
+                name: "Certificates");
+
+            migrationBuilder.DropTable(
                 name: "Comments");
 
             migrationBuilder.DropTable(
+                name: "DiscountCodes");
+
+            migrationBuilder.DropTable(
                 name: "ExamResults");
+
+            migrationBuilder.DropTable(
+                name: "Honors");
 
             migrationBuilder.DropTable(
                 name: "LessonAccessCodes");

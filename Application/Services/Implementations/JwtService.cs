@@ -75,7 +75,7 @@ namespace Application.Services.Implementations
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken.Token,
-                AccessTokenExpires = accessTokenExpires,
+                //AccessTokenExpires = accessTokenExpires,
                 Roles = userRoles.ToList()
             };
         }

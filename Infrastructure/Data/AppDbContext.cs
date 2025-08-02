@@ -30,12 +30,14 @@ namespace Infrastructure.Data
         public DbSet<ExamResult> ExamResults { get; set; }
         public DbSet<McqQuestion> McqQuestions { get; set; }
         public DbSet<DiscountCode> DiscountCodes { get; set; }
+        public DbSet<Honor> Honors { get; set; }
+        public DbSet<Certificate> Certificates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Course configuration
+            // Course
             builder.Entity<Course>()
                 .Property(c => c.Name)
                 .IsRequired()
@@ -71,7 +73,7 @@ namespace Infrastructure.Data
                 .Property(c => c.WhatStudentsWillLearn)
                 .HasMaxLength(1000);
 
-            // Lesson configuration
+            // Lesson
             builder.Entity<Lesson>()
                 .HasOne(l => l.Course)
                 .WithMany(c => c.Lessons)
@@ -111,7 +113,7 @@ namespace Infrastructure.Data
                 .HasColumnType("decimal(18,2)")
                 .IsRequired(false);
 
-            // Review configuration
+            // Review
             builder.Entity<Review>()
                 .HasOne(r => r.User)
                 .WithMany(u => u.Reviews)
@@ -133,7 +135,7 @@ namespace Infrastructure.Data
                 .HasIndex(r => new { r.UserId, r.CourseId })
                 .IsUnique();
 
-            // Comment configuration
+            // Comment
             builder.Entity<Comment>()
                 .HasOne(c => c.User)
                 .WithMany(u => u.Comments)
@@ -149,7 +151,7 @@ namespace Infrastructure.Data
             builder.Entity<Comment>()
                 .HasIndex(c => new { c.UserId, c.LessonId });
 
-            // Question configuration
+            // Question
             builder.Entity<Question>()
                 .HasOne(q => q.User)
                 .WithMany(u => u.Questions)
@@ -259,7 +261,7 @@ namespace Infrastructure.Data
                 .HasIndex(p => p.TransactionId)
                 .IsUnique();
 
-            // Notification configuration
+            // Notification
             builder.Entity<Notification>()
                 .HasOne(n => n.User)
                 .WithMany(u => u.Notifications)
@@ -269,7 +271,7 @@ namespace Infrastructure.Data
             builder.Entity<Notification>()
                 .HasIndex(n => n.UserId);
 
-            // LessonAccessCode configuration
+            // LessonAccessCode
             builder.Entity<LessonAccessCode>()
                 .HasOne(lac => lac.Lesson)
                 .WithMany(l => l.LessonAccessCodes)
@@ -289,7 +291,7 @@ namespace Infrastructure.Data
             builder.Entity<LessonAccessCode>()
                 .HasIndex(lac => new { lac.LessonId, lac.UserId });
 
-            // RefreshToken configuration
+            // RefreshToken
             builder.Entity<RefreshToken>()
                 .HasOne(rt => rt.User)
                 .WithMany(u => u.RefreshTokens)
@@ -300,13 +302,17 @@ namespace Infrastructure.Data
                 .HasIndex(rt => rt.Token)
                 .IsUnique();
 
-            // Exam configuration
+            // Exam
             builder.Entity<Exam>()
                 .HasKey(e => e.Id);
 
             builder.Entity<Exam>()
                 .Property(e => e.Title)
                 .IsRequired();
+
+            builder.Entity<Exam>()
+                .Property(e => e.PdfPath)
+                .IsRequired(false);
 
             builder.Entity<Exam>()
                 .Property(e => e.CreatedAt)
@@ -317,12 +323,17 @@ namespace Infrastructure.Data
                 .IsRequired(false);
 
             builder.Entity<Exam>()
+                .Property(e => e.CertificateThreshold)
+                .HasColumnType("decimal(5,2)")
+                .IsRequired();
+
+            builder.Entity<Exam>()
                 .HasOne(e => e.Lesson)
                 .WithMany(l => l.Exams)
                 .HasForeignKey(e => e.LessonId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // ExamResult configuration
+            // ExamResult
             builder.Entity<ExamResult>()
                 .HasKey(er => er.Id);
 
@@ -376,12 +387,24 @@ namespace Infrastructure.Data
                 .IsRequired();
 
             builder.Entity<McqQuestion>()
+                .Property(q => q.ImageUrl)
+                .IsRequired(false);
+
+            builder.Entity<McqQuestion>()
+                .Property(q => q.TimeInSeconds)
+                .IsRequired();
+
+            builder.Entity<McqQuestion>()
+                .Property(q => q.DefaultOptionIndex)
+                .IsRequired();
+
+            builder.Entity<McqQuestion>()
                 .HasOne(q => q.Exam)
                 .WithMany(e => e.Questions)
                 .HasForeignKey(q => q.ExamId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // DiscountCode configuration
+            // DiscountCode
             builder.Entity<DiscountCode>()
                 .HasKey(dc => dc.Id);
 
@@ -416,6 +439,91 @@ namespace Infrastructure.Data
             builder.Entity<DiscountCode>()
                 .HasIndex(dc => dc.Code)
                 .IsUnique();
+
+            // Honor
+            builder.Entity<Honor>()
+                .HasKey(h => h.Id);
+
+            builder.Entity<Honor>()
+                .Property(h => h.StudentId)
+                .IsRequired();
+
+            builder.Entity<Honor>()
+                .Property(h => h.TeacherId)
+                .IsRequired();
+
+            builder.Entity<Honor>()
+                .Property(h => h.Description)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            builder.Entity<Honor>()
+                .Property(h => h.StudentImageUrl)
+                .IsRequired(false);
+
+            builder.Entity<Honor>()
+                .Property(h => h.CreatedAt)
+                .IsRequired();
+
+            builder.Entity<Honor>()
+                .HasOne(h => h.Student)
+                .WithMany(u => u.Honors)
+                .HasForeignKey(h => h.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Honor>()
+                .HasOne(h => h.Teacher)
+                .WithMany(u => u.CreatedHonors)
+                .HasForeignKey(h => h.TeacherId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.Entity<Honor>()
+                .HasIndex(h => new { h.StudentId, h.TeacherId });
+
+            // Certificate configuration
+            builder.Entity<Certificate>()
+                .HasKey(c => c.Id);
+
+            builder.Entity<Certificate>()
+                .Property(c => c.StudentId)
+                .IsRequired();
+
+            builder.Entity<Certificate>()
+                .Property(c => c.ExamId)
+                .IsRequired();
+
+            builder.Entity<Certificate>()
+                .Property(c => c.CertificateTitle)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.Entity<Certificate>()
+                .Property(c => c.Description)
+                .IsRequired(false)
+                .HasMaxLength(1000);
+
+            builder.Entity<Certificate>()
+                .Property(c => c.IssuedAt)
+                .IsRequired();
+
+            builder.Entity<Certificate>()
+                .Property(c => c.PdfPath)
+                .IsRequired();
+
+            builder.Entity<Certificate>()
+                .HasOne(c => c.Student)
+                .WithMany(u => u.Certificates)
+                .HasForeignKey(c => c.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Certificate>()
+                .HasOne(c => c.Exam)
+                .WithMany(e => e.Certificates)
+                .HasForeignKey(c => c.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Certificate>()
+                .HasIndex(c => new { c.StudentId, c.ExamId });
         }
     }
 }

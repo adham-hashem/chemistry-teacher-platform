@@ -14,7 +14,7 @@ namespace Application.Dtos.ExamDtos
         public string FullName { get; set; }
         public string Email { get; set; }
         public List<int> Answers { get; set; } = new List<int>();
-        public int Score { get; set; }
+        public decimal Score { get; set; }
         public DateTime SubmittedAt { get; set; }
     }
 }

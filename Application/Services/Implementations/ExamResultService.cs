@@ -18,6 +18,7 @@ namespace Application.Services.Implementations
         private readonly ILessonAccessCodeRepository _lessonAccessCodeRepository;
         private readonly ISubscriptionService _subscriptionService;
         private readonly ILessonRepository _lessonRepository;
+        private readonly ICertificateRepository _certificateRepository;
         private readonly UserManager<ApplicationUser> _userManager;
 
         public ExamResultService(
@@ -27,6 +28,7 @@ namespace Application.Services.Implementations
             ILessonAccessCodeRepository lessonAccessCodeRepository,
             ISubscriptionService subscriptionService,
             ILessonRepository lessonRepository,
+            ICertificateRepository certificateRepository,
             UserManager<ApplicationUser> userManager)
         {
             _examResultRepository = examResultRepository;
@@ -35,6 +37,7 @@ namespace Application.Services.Implementations
             _lessonAccessCodeRepository = lessonAccessCodeRepository;
             _subscriptionService = subscriptionService;
             _lessonRepository = lessonRepository;
+            _certificateRepository = certificateRepository;
             _userManager = userManager;
         }
 
@@ -123,16 +126,6 @@ namespace Application.Services.Implementations
                 throw new KeyNotFoundException("No accessible exam results found for the specific lesson.");
 
             return resultsDtos;
-
-            //return examResults.Select(er => new ExamResultDto
-            //{
-            //    Id = er.Id,
-            //    ExamId = er.ExamId,
-            //    UserId = er.UserId,
-            //    Answers = er.Answers,
-            //    Score = er.Score,
-            //    SubmittedAt = er.SubmittedAt
-            //}).ToList();
         }
 
         public async Task<ExamResultDto> GetByUserIdAndExamIdAsync(string userId, Guid examId)
@@ -178,30 +171,46 @@ namespace Application.Services.Implementations
             if (lesson == null)
                 throw new KeyNotFoundException("Lesson not found.");
 
-            // Check if the student has already submitted this exam
             var existingResult = await _examResultRepository.GetByExamIdAndUserIdAsync(submitExamDto.ExamId, userId);
             if (existingResult != null)
                 throw new InvalidOperationException("Exam already submitted by this user.");
 
-            // Allow access if the lesson is free or the student has a subscription/access code
             bool hasAccess = lesson.IsFree || await _subscriptionService.CanAccessLessonAsync(userId, exam.LessonId);
             if (!hasAccess)
                 throw new UnauthorizedAccessException("User does not have access to the lesson associated with this exam.");
 
-            if (submitExamDto.Answers == null || !submitExamDto.Answers.Any())
-                throw new ArgumentException("At least one answer must be provided.");
+            if (exam.Questions.Any() && (submitExamDto.Answers == null || !submitExamDto.Answers.Any()))
+                throw new ArgumentException("Answers must be provided for exams with questions.");
+
+            var score = exam.Questions.Any() ? CalculateScore(exam.Questions, submitExamDto.Answers) : submitExamDto.Score;
 
             var examResult = new ExamResult
             {
                 Id = Guid.NewGuid(),
                 ExamId = submitExamDto.ExamId,
                 UserId = userId,
-                Answers = submitExamDto.Answers,
+                Answers = submitExamDto.Answers ?? new List<int>(),
                 SubmittedAt = DateTime.UtcNow,
-                Score = CalculateScore(exam.Questions, submitExamDto.Answers)
+                Score = score
             };
 
             await _examResultRepository.AddAsync(examResult);
+
+            decimal scorePercentage = exam.Questions.Any() ? (examResult.Score / (decimal)exam.Questions.Count) * 100 : examResult.Score;
+            if (scorePercentage >= exam.CertificateThreshold)
+            {
+                var certificate = new Certificate
+                {
+                    Id = Guid.NewGuid(),
+                    StudentId = userId,
+                    ExamId = exam.Id,
+                    CertificateTitle = $"Certificate for {exam.Title}",
+                    Description = $"Awarded to {user.FirstName} {user.LastName} for achieving {scorePercentage:F2}% in {exam.Title}",
+                    IssuedAt = DateTime.UtcNow,
+                    PdfPath = await GenerateCertificatePdf(user, exam, scorePercentage)
+                };
+                await _certificateRepository.AddAsync(certificate);
+            }
 
             return new ExamResultDto
             {
@@ -230,18 +239,26 @@ namespace Application.Services.Implementations
             await _examResultRepository.DeleteAsync(id);
         }
 
-        private int CalculateScore(List<McqQuestion> questions, List<int> answers)
+        private int CalculateScore(IList<McqQuestion> questions, IList<int> answers)
         {
-            if (questions == null || !questions.Any())
+            if (questions == null || answers == null || questions.Count != answers.Count)
                 return 0;
 
             int score = 0;
-            for (int i = 0; i < Math.Min(questions.Count, answers.Count); i++)
+            for (int i = 0; i < questions.Count; i++)
             {
-                if (answers[i] == questions[i].CorrectOptionIndex)
+                // Both answers and CorrectOptionIndex are 0-based, so compare directly
+                if (i < answers.Count && answers[i] == questions[i].CorrectOptionIndex)
                     score++;
             }
             return score;
+        }
+
+        private async Task<string> GenerateCertificatePdf(ApplicationUser user, Exam exam, decimal scorePercentage)
+        {
+            var certificateId = Guid.NewGuid();
+            var pdfPath = $"/uploads/certificates/{certificateId}.pdf";
+            return pdfPath;
         }
     }
 }

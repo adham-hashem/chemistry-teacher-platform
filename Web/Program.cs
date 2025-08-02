@@ -14,6 +14,8 @@ using Application.Repositories.Interfaces;
 using Domain.Entities;
 using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
+using Infrastructure.Repositories.Implementations.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Http.Features;
 
 Env.Load();
 
@@ -161,6 +163,12 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Configure form options for file uploads
+//builder.Services.Configure<FormOptions>(options =>
+//{
+//    options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10 MB limit
+//});
+
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IDiscountCodeRepository, DiscountCodeRepository>();
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
@@ -170,7 +178,8 @@ builder.Services.AddScoped<ILessonRepository, LessonRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-
+builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
+builder.Services.AddScoped<IHonorRepository, HonorRepository>();
 
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IDiscountCodeService, DiscountCodeService>();
@@ -183,6 +192,7 @@ builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddHttpClient<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IHonorService, HonorService>();
 
 var app = builder.Build();
 
@@ -203,7 +213,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll"); // Use specific CORS policy for debugging
+app.UseCors("AllowAll");
 app.UseStaticFiles();
 //app.UseRateLimiter();
 

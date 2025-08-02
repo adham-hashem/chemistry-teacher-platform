@@ -1,7 +1,7 @@
-﻿using Application.Dtos.AuthDtos;
-using Application.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Application.Dtos.AuthDtos;
+using Application.Services.Interfaces;
 
 namespace Web.Controllers
 {
@@ -101,6 +101,20 @@ namespace Web.Controllers
             }
         }
 
+        [HttpPost("send-email-verification")]
+        public async Task<IActionResult> SendEmailVerification([FromBody] SendEmailVerificationDto sendEmailVerificationDto)
+        {
+            try
+            {
+                await _authService.SendEmailVerificationAsync(sendEmailVerificationDto.Email);
+                return Ok(new { Message = "Email verification sent successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpPost("verify-email")]
         public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailDto verifyEmailDto)
         {
@@ -114,5 +128,10 @@ namespace Web.Controllers
                 return BadRequest(new { Message = ex.Message });
             }
         }
+    }
+
+    public class SendEmailVerificationDto
+    {
+        public string Email { get; set; }
     }
 }

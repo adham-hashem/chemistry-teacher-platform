@@ -11,7 +11,10 @@ namespace Application.Dtos.ExamDtos
     {
         [Required]
         public Guid ExamId { get; set; }
+
         [Required, MinLength(1)]
         public List<int> Answers { get; set; } = new List<int>();
+
+        public decimal Score { get; set; }
     }
 }

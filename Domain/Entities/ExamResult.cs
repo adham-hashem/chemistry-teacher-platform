@@ -14,7 +14,7 @@ namespace Domain.Entities
         public string UserId { get; set; }
         public ApplicationUser User { get; set; }
         public List<int> Answers { get; set; } = new List<int>();
-        public int Score { get; set; }
+        public decimal Score { get; set; }
         public DateTime SubmittedAt { get; set; }
     }
 }

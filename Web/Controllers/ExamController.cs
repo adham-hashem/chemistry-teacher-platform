@@ -1,5 +1,9 @@
-﻿using Application.Dtos.ExamDtos;
+﻿using System;
+using System.Text.Json; // Add this for JsonSerializer
+using System.Threading.Tasks;
+using Application.Dtos.ExamDtos;
 using Application.Services.Interfaces;
+using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -38,6 +42,9 @@ namespace Web.Controllers
             try
             {
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
                 var exams = await _examService.GetByLessonIdAsync(lessonId, userId);
                 return Ok(exams);
             }
@@ -63,13 +70,60 @@ namespace Web.Controllers
         }
 
         [Authorize(Roles = "Teacher")]
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ExamDto examDto)
+        [HttpPost("mcq")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateMcq([FromForm] CreateMcqExamRequest request)
         {
             try
             {
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                var createdExam = await _examService.CreateAsync(examDto, userId);
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                // Deserialize the Questions JSON string
+                var questions = string.IsNullOrEmpty(request.QuestionsJson)
+                    ? new List<McqQuestionDto>()
+                    : JsonSerializer.Deserialize<List<McqQuestionDto>>(request.QuestionsJson, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                var examDto = new ExamDto
+                {
+                    LessonId = request.LessonId,
+                    Title = request.Title,
+                    Questions = questions,
+                    ExamType = ExamType.MCQ,
+                    CertificateThreshold = request.CertificateThreshold
+                };
+
+                // Pass the image files to the service
+                var createdExam = await _examService.CreateAsync(examDto, userId, null, request.QuestionImageFiles);
+                return CreatedAtAction(nameof(GetById), new { id = createdExam.Id }, createdExam);
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { message = "Invalid questions JSON format." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Teacher")]
+        [HttpPost("pdf")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreatePdf([FromForm] ExamDto examDto, [FromForm] IFormFile examPdf)
+        {
+            try
+            {
+                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                examDto.ExamType = ExamType.PDF;
+                var createdExam = await _examService.CreateAsync(examDto, userId, examPdf);
                 return CreatedAtAction(nameof(GetById), new { id = createdExam.Id }, createdExam);
             }
             catch (Exception ex)
@@ -79,13 +133,80 @@ namespace Web.Controllers
         }
 
         [Authorize(Roles = "Teacher")]
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] ExamDto examDto)
+        [HttpPut("{id}/mcq")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UpdateMcq(Guid id, [FromForm] CreateMcqExamRequest request)
         {
             try
             {
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                var updatedExam = await _examService.UpdateAsync(id, examDto, userId);
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                // Deserialize the Questions JSON string
+                var questions = string.IsNullOrEmpty(request.QuestionsJson)
+                    ? new List<McqQuestionDto>()
+                    : JsonSerializer.Deserialize<List<McqQuestionDto>>(request.QuestionsJson, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                var examDto = new ExamDto
+                {
+                    LessonId = request.LessonId,
+                    Title = request.Title,
+                    Questions = questions,
+                    ExamType = ExamType.MCQ,
+                    CertificateThreshold = request.CertificateThreshold
+                };
+
+                // Pass the image files to the service
+                var updatedExam = await _examService.UpdateAsync(id, examDto, userId, null, request.QuestionImageFiles);
+                return Ok(updatedExam);
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { message = "Invalid questions JSON format." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Teacher")]
+        [HttpPut("{id}/pdf")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UpdatePdf(Guid id, [FromForm] ExamDto examDto, [FromForm] IFormFile? examPdf = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                examDto.ExamType = ExamType.PDF;
+                var updatedExam = await _examService.UpdateAsync(id, examDto, userId, examPdf);
+                return Ok(updatedExam);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Teacher")]
+        [HttpPut("{id}")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Update(Guid id, [FromForm] ExamDto examDto, [FromForm] IFormFile? examPdf = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                var updatedExam = await _examService.UpdateAsync(id, examDto, userId, examPdf);
                 return Ok(updatedExam);
             }
             catch (Exception ex)
@@ -101,6 +222,9 @@ namespace Web.Controllers
             try
             {
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated." });
+
                 await _examService.DeleteAsync(id, userId);
                 return NoContent();
             }

@@ -20,6 +20,13 @@ namespace Domain.Entities
         [Required]
         [Range(0, int.MaxValue)]
         public int CorrectOptionIndex { get; set; }
+        public string? ImageUrl { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int TimeInSeconds { get; set; } = 60;
+
+        [Range(0, int.MaxValue)]
+        public int DefaultOptionIndex { get; set; } = -1;
 
         public Guid ExamId { get; set; }
 
