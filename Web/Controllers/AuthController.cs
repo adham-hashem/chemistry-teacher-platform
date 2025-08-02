@@ -21,8 +21,8 @@ namespace Web.Controllers
         {
             try
             {
-                var tokenResponse = await _authService.RegisterAsync(registerDto);
-                return Ok(tokenResponse);
+                await _authService.RegisterAsync(registerDto);
+                return Ok(new { Message = "Registration successful. Please check your email to verify your account." });
             }
             catch (Exception ex)
             {

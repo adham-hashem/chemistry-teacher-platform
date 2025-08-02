@@ -36,5 +36,6 @@ namespace Domain.Entities
         public List<Certificate> Certificates { get; set; } = new List<Certificate>();
         public bool IsEmailVerified { get; set; } = false;
         public string? EmailVerificationToken { get; set; }
+        public DateTime? EmailVerificationTokenCreatedAt { get; set; }
     }
 }

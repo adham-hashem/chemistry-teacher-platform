@@ -1,9 +1,8 @@
-﻿using System;
-using System.Net.Mail;
-using System.Net;
+﻿using SendGrid;
+using SendGrid.Helpers.Mail;
 using System.Threading.Tasks;
-using Application.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Application.Services.Interfaces;
 
 namespace Application.Services.Implementations
 {
@@ -11,42 +10,29 @@ namespace Application.Services.Implementations
     {
         public async Task SendEmailAsync(string toEmail, string subject, string body, bool isHtml = false)
         {
+            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
             var senderEmail = Environment.GetEnvironmentVariable("SMTP_SENDER_EMAIL");
-            var appPassword = Environment.GetEnvironmentVariable("SMTP_APP_PASSWORD");
-            var smtpServer = Environment.GetEnvironmentVariable("SMTP_SERVER");
-            var portStr = Environment.GetEnvironmentVariable("SMTP_PORT_NUMBER");
 
-            if (string.IsNullOrEmpty(senderEmail) ||
-                string.IsNullOrEmpty(appPassword) ||
-                string.IsNullOrEmpty(smtpServer) ||
-                string.IsNullOrEmpty(portStr))
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(senderEmail))
             {
-                throw new Exception("SMTP configuration is missing.");
+                throw new Exception("SendGrid configuration is missing.");
             }
 
-            if (!int.TryParse(portStr, out int port))
+            var client = new SendGridClient(apiKey);
+            var from = new EmailAddress(senderEmail);
+            var to = new EmailAddress(toEmail);
+            var plainTextBody = isHtml ? null : body; // Use body as plain text if not HTML
+            var htmlBody = isHtml ? body : null; // Use body as HTML if specified
+            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextBody, htmlBody);
+
+            var response = await client.SendEmailAsync(msg);
+
+            if (response.StatusCode != System.Net.HttpStatusCode.OK &&
+                response.StatusCode != System.Net.HttpStatusCode.Accepted)
             {
-                throw new Exception("Invalid SMTP port number.");
+                var errorBody = await response.Body.ReadAsStringAsync();
+                throw new Exception($"Failed to send email via SendGrid: {errorBody}");
             }
-
-            var smtpClient = new SmtpClient(smtpServer)
-            {
-                Port = port,
-                Credentials = new NetworkCredential(senderEmail, appPassword),
-                EnableSsl = true,
-            };
-
-            var mailMessage = new MailMessage
-            {
-                From = new MailAddress(senderEmail),
-                Subject = subject,
-                Body = body,
-                IsBodyHtml = isHtml,
-            };
-            mailMessage.To.Add(toEmail);
-
-            await smtpClient.SendMailAsync(mailMessage);
-
         }
     }
 }

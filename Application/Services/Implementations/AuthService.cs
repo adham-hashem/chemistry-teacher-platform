@@ -34,7 +34,7 @@ namespace Application.Services.Implementations
             _emailService = emailService;
         }
 
-        public async Task<TokenResponseDto> RegisterAsync(RegisterDto registerDto)
+        public async Task RegisterAsync(RegisterDto registerDto)
         {
             var user = new ApplicationUser
             {
@@ -54,8 +54,6 @@ namespace Application.Services.Implementations
 
             // Send email verification
             await SendEmailVerificationAsync(registerDto.Email);
-
-            return await _jwtService.GenerateJwtToken(user);
         }
 
         public async Task<TokenResponseDto> LoginAsync(LoginDto loginDto)
@@ -64,7 +62,6 @@ namespace Application.Services.Implementations
             if (user == null || !await _userManager.CheckPasswordAsync(user, loginDto.Password))
                 throw new Exception("Invalid email or password.");
 
-            // Check if email is verified
             if (!user.IsEmailVerified)
                 throw new Exception("Email not verified. Please verify your email before logging in.");
 
@@ -109,7 +106,8 @@ namespace Application.Services.Implementations
             var callbackUrl = $"https://chemistry-teacher.vercel.app/reset-password?email={HttpUtility.UrlEncode(email)}&token={HttpUtility.UrlEncode(token)}";
 
             var subject = "طلب إعادة تعيين كلمة المرور";
-            var body = $@"<!DOCTYPE html>
+            var plainTextBody = $"مرحبًا {user.FirstName}،\n\nتلقينا طلبًا لإعادة تعيين كلمة المرور. انقر هنا لتعيين كلمة مرور جديدة: {callbackUrl}\n\nإذا لم تطلب ذلك، تجاهل هذا البريد.\n\nشكرًا،\nكيمياء مستر مجاهد";
+            var htmlBody = $@"<!DOCTYPE html>
                             <html lang=""ar"">
                             <head>
                                 <meta charset=""UTF-8"">
@@ -203,8 +201,9 @@ namespace Application.Services.Implementations
                             </body>
                             </html>";
 
-            Console.WriteLine($"ForgotPassword callbackUrl: {callbackUrl}"); // Log for debugging
-            await _emailService.SendEmailAsync(user.Email, subject, body, isHtml: true);
+            // Avoid logging sensitive URLs
+            Console.WriteLine($"Sending password reset email to: {user.Email}");
+            await _emailService.SendEmailAsync(user.Email, subject, htmlBody, isHtml: true);
         }
 
         public async Task ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
@@ -226,13 +225,15 @@ namespace Application.Services.Implementations
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             user.EmailVerificationToken = token;
+            user.EmailVerificationTokenCreatedAt = DateTime.UtcNow; // Store token creation time
             await _userManager.UpdateAsync(user);
 
             var encodedToken = HttpUtility.UrlEncode(token);
             var verificationLink = $"https://chemistry-teacher.vercel.app/verify-email?email={HttpUtility.UrlEncode(email)}&token={encodedToken}";
 
             var subject = "التحقق من البريد الإلكتروني";
-            var body = $@"<!DOCTYPE html>
+            var plainTextBody = $"مرحبًا {user.FirstName}،\n\nشكرًا لتسجيلك في كيمياء مستر مجاهد. انقر هنا لتفعيل حسابك: {verificationLink}\n\nإذا لم تقم بالتسجيل، تجاهل هذا البريد.\n\nشكرًا،\nكيمياء مستر مجاهد";
+            var htmlBody = $@"<!DOCTYPE html>
                             <html lang=""ar"">
                             <head>
                                 <meta charset=""UTF-8"">
@@ -326,8 +327,8 @@ namespace Application.Services.Implementations
                             </body>
                             </html>";
 
-            Console.WriteLine($"Email verification link: {verificationLink}"); // Log for debugging
-            await _emailService.SendEmailAsync(email, subject, body, isHtml: true);
+            Console.WriteLine($"Sending email verification to: {user.Email}");
+            await _emailService.SendEmailAsync(email, subject, htmlBody, isHtml: true);
         }
 
         public async Task VerifyEmailAsync(VerifyEmailDto verifyEmailDto)
@@ -336,12 +337,20 @@ namespace Application.Services.Implementations
             if (user == null)
                 throw new Exception("User not found.");
 
+            // Check token expiration (24 hours)
+            if (user.EmailVerificationTokenCreatedAt.HasValue &&
+                user.EmailVerificationTokenCreatedAt.Value.AddHours(24) < DateTime.UtcNow)
+            {
+                throw new Exception("Email verification token has expired.");
+            }
+
             var result = await _userManager.ConfirmEmailAsync(user, verifyEmailDto.Token);
             if (!result.Succeeded)
                 throw new Exception(string.Join("; ", result.Errors.Select(e => e.Description)));
 
             user.IsEmailVerified = true;
             user.EmailVerificationToken = null;
+            user.EmailVerificationTokenCreatedAt = null;
             await _userManager.UpdateAsync(user);
         }
     }
